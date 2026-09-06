@@ -61,6 +61,20 @@ class Leg:
             return np.array([0.0, 0.0, 0.0])
         return self.VectorToAEP / self.DistToAEP
 
+    """
+    def update method to 
+    1) check if leg should switch stance depending on disttoAEP or PEP <= stance or swing step , 2) update tarsus position depending on groundcontact True or False and initiate movement by adding norm vectors * stancestep or swingstep to tarsus position
+
+    """
+    def update(self): 
+        if self.DistToPEP <= self.StanceStep and self.GroundContact: 
+            self.GroundContact = False #switch to swing and then add normAEP x swing to tarsus
+        elif self.DistToAEP <= self.SwingStep and not self.GroundContact:
+            self.GroundContact = True #switch to stance and then add normPEP x stance to tarsus 
+        if self.GroundContact:
+            self.TarsusPosition += self.VectorToPEP_normal * self.StanceStep
+        else:
+            self.TarsusPosition += self.VectorToAEP_normal * self.SwingStep
 
 # TEST if name = main keeps testing block tied to this hexleg code ,  wont be run if another script calls it
 if __name__ == "__main__":
@@ -78,3 +92,27 @@ if __name__ == "__main__":
     print(leg.VectorToAEP)
     print(leg.VectorToPEP_normal)   
     print(leg.VectorToAEP_normal)
+    leg.update()
+    print(leg.TarsusPosition)
+    print(leg.GroundContact)
+
+    """
+    1
+L1 = label
+[0.  0.4 . 0] Tarsus position
+[0.   0.55 0.  ] AEP
+[0.   0.25 0.  ] PEP
+0.15000000000000002 dist to PEP
+0.15000000000000002 dist to AEP
+[ 0.   -0.15  0.  ] raw dist to PEP vector
+[0.   0.15 0.  ] raw dist to AEP vector
+[ 0. -1.  0.] PEP vector normalized for constant stance step size (dir independent of dist)
+[0. 1. 0.] AEP vector nornalized for constant swing step size (dir independent of dist)
+[0.   0.38 0.  ] updated tarsus position after update method 
+True updated ground conhtact status 
+
+above = 1 iteration tarsus position moved from 0.4 iniital to 0.38 ie 0.02 stance step backwards towards pep and therefore ground contact = true because dist to pep has 0.13 units to go before switching to swing and updating tarsus position with normAEP * swing step 
+
+therefore test works and leg class functions as intended 
+push to git 
+"""
