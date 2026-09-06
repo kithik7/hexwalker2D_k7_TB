@@ -25,6 +25,17 @@ class Leg:
         self.GroundContact = True
         self.StanceOrientation = 0.0
         self.TarsusPosition = origin_pt + workspace_center 
+        #calculate stde, AEP, PEP, anmd implement rotaion matrix M 
+        M = np.array([[np.cos(self.StanceOrientation), -np.sin(self.StanceOrientation), 0],
+                      [np.sin(self.StanceOrientation), np.cos(self.StanceOrientation), 0],
+                      [0, 0, 1]])
+        fwd = np.array([0,1,0])
+        fwd_rotated = M @ fwd #matrix multiplied w vector
+        self.AEP = self.TarsusPosition + fwd_rotated * self.StanceAmp/2 
+        #fwd_rotated + stance_amp/2 is the resultant stride vector post rotation , each EP is #half a stride length
+        self.PEP = self.TarsusPosition - fwd_rotated * self.StanceAmp/2
+
+
 
 # TEST if name = main keeps testing block tied to this hexleg code ,  wont be run if another script calls it
 if __name__ == "__main__":
@@ -34,5 +45,7 @@ if __name__ == "__main__":
     print(leg.ID)
     print(leg.leg_label)
     print(leg.TarsusPosition)
+    print(leg.AEP)
+    print(leg.PEP)
 
     
