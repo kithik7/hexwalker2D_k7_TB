@@ -1,3 +1,8 @@
+"""
+Da Capo (D.C.)
+
+"""
+
 import numpy as np 
 import matplotlib.pyplot as plt
 
@@ -13,16 +18,16 @@ class Leg:
         self.leg_label = leg_label 
         self.origin_pt = origin_pt 
         self.workspace_center = workspace_center
-        self.workspace_radius = workspace_radius
+        self.workspace_radius = workspace_radius #draws the outline for visualisation 
 
 
         # default values are needed so __init__ sets these values that every leg 
         # starts with
         #regardless of what is passed in 
         self.StanceAmp = 0.3 
-        self.StanceStep = 0.02
-        self.SwingStep = 0.03
-        self.GroundContact = True
+        self.StanceStep = 0.02 #andante
+        self.SwingStep = 0.03 #allegro
+        self.GroundContact = True #Fermata (hold if true) 
         self.StanceOrientation = 0.0
         self.TarsusPosition = origin_pt + workspace_center 
         #calculate stde, AEP, PEP, anmd implement rotaion matrix M 
@@ -62,21 +67,22 @@ class Leg:
         return self.VectorToAEP / self.DistToAEP
 
     """
-    def update method to 
+    def update method to elicit stepwise sharps # AEPSharp and PEPSharp 
     1) check if leg should switch stance depending on disttoAEP or PEP <= stance or swing step , 2) update tarsus position depending on groundcontact True or False and initiate movement by adding norm vectors * stancestep or swingstep to tarsus position
 
     """
     def update(self): 
-        if self.DistToPEP <= self.StanceStep and self.GroundContact: 
+        if self.DistToPEP <= self.StanceStep and self.GroundContact: #Fermata
             self.GroundContact = False #switch to swing and then add normAEP x swing to tarsus
-        elif self.DistToAEP <= self.SwingStep and not self.GroundContact:
+        elif self.DistToAEP <= self.SwingStep and not self.GroundContact: #Tacet
             self.GroundContact = True #switch to stance and then add normPEP x stance to tarsus 
         if self.GroundContact:
             self.TarsusPosition += self.VectorToPEP_normal * self.StanceStep
         else:
             self.TarsusPosition += self.VectorToAEP_normal * self.SwingStep
 
-# TEST if name = main keeps testing block tied to this hexleg code ,  wont be run if another script calls it
+# CODA :|| rhythmic leg ostinato 
+# if name = main keeps testing block tied to this hexleg code ,  wont be run if another script calls it
 if __name__ == "__main__":
     origin = np.array([0.1, 0.2, 0.0])
     workspace_center = np.array([-0.1, 0.2, 0.0])
@@ -95,6 +101,7 @@ if __name__ == "__main__":
     leg.update()
     print(leg.TarsusPosition)
     print(leg.GroundContact)
+# ||: for each leg 
 
     """
     1
@@ -114,5 +121,5 @@ True updated ground conhtact status
 above = 1 iteration tarsus position moved from 0.4 iniital to 0.38 ie 0.02 stance step backwards towards pep and therefore ground contact = true because dist to pep has 0.13 units to go before switching to swing and updating tarsus position with normAEP * swing step 
 
 therefore test works and leg class functions as intended 
-push to git 
+
 """
