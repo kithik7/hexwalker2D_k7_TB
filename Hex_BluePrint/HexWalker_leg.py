@@ -20,8 +20,8 @@ class Leg:
         # starts with
         #regardless of what is passed in 
         self.StanceAmp = 0.3 
-        self.StanceSpeed = 0.02
-        self.SwingSpeed = 0.03
+        self.StanceStep = 0.02
+        self.SwingStep = 0.03
         self.GroundContact = True
         self.StanceOrientation = 0.0
         self.TarsusPosition = origin_pt + workspace_center 
@@ -30,11 +30,36 @@ class Leg:
                       [np.sin(self.StanceOrientation), np.cos(self.StanceOrientation), 0],
                       [0, 0, 1]])
         fwd = np.array([0,1,0])
-        fwd_rotated = M @ fwd #matrix multiplied w vector
-        self.AEP = self.TarsusPosition + fwd_rotated * self.StanceAmp/2 
+        fwd_rotated = M @ fwd #matrix multiplied w vector resulting in rotated stride axis 
+        stride_vector = fwd_rotated * self.StanceAmp/2 
+        self.AEP = self.TarsusPosition + stride_vector 
         #fwd_rotated + stance_amp/2 is the resultant stride vector post rotation , each EP is #half a stride length
-        self.PEP = self.TarsusPosition - fwd_rotated * self.StanceAmp/2
+        self.PEP = self.TarsusPosition - stride_vector
 
+    #define vector and distance dependent properties using @property that acts as an attribute but iteration friendly
+    # distance to PEP = vector whihc is the distance from tarsus pos to PEP 
+    @property 
+    def DistToPEP(self):
+        return np.linalg.norm(self.PEP - self.TarsusPosition)
+    @property 
+    def DistToAEP(self):
+        return np.linalg.norm(self.AEP - self.TarsusPosition)
+    @property 
+    def VectorToPEP(self):
+        return self.PEP - self.TarsusPosition
+    @property
+    def VectorToAEP(self):
+        return self.AEP - self.TarsusPosition
+    @property 
+    def VectorToPEP_normal(self):
+        if self.DistToPEP == 0: 
+            return np.array([0.0, 0.0, 0.0])
+        return self.VectorToPEP / self.DistToPEP
+    @property 
+    def VectorToAEP_normal(self):
+        if self.DistToAEP == 0: 
+            return np.array([0.0, 0.0, 0.0])
+        return self.VectorToAEP / self.DistToAEP
 
 
 # TEST if name = main keeps testing block tied to this hexleg code ,  wont be run if another script calls it
@@ -47,5 +72,9 @@ if __name__ == "__main__":
     print(leg.TarsusPosition)
     print(leg.AEP)
     print(leg.PEP)
-
-    
+    print(leg.DistToPEP)
+    print(leg.DistToAEP)
+    print(leg.VectorToPEP)
+    print(leg.VectorToAEP)
+    print(leg.VectorToPEP_normal)   
+    print(leg.VectorToAEP_normal)
