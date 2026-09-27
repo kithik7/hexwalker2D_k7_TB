@@ -43,14 +43,43 @@ class Walker:
         self.legs[2].GroundContact = False
         self.legs[4].GroundContact = False
 
+    def calculate_displacement(self): 
+        displacement = np.zeros(3)
+        grounded_count = 0
+        for leg in self.legs: 
+            if leg.GroundContact: 
+                displacement += -leg.VectorToPEP_normal *leg.StanceStep 
+                grounded_count += 1 
+        if grounded_count > 0: 
+            displacement /= grounded_count
+        return displacement
 
+#without rotation (net turning yet) 
+    def update(self):
+        for leg in self.legs:
+            leg.update() 
 
+        #calculate displacement 
+        displacement = self.calculate_displacement()
+
+        #apply displacement to body position and orientation 
+        self.body_pos += displacement
+        self.body_orient += displacement[2]
 
 #test_block        
 if __name__ == "__main__": 
     import numpy as np 
     body_pos = np.array([0.0, 0.0, 0.0])
     walker = Walker(1, "Walker_01", body_pos, 0.0)
-    for leg in walker.legs:
-        print(leg.ID, leg.leg_label, leg.TarsusPosition)
+
+    walker.update()
+    print("body position after update 1:", walker.body_pos)
+
+    walker.update()
+    print("body position after update 2:", walker.body_pos)
+
+    walker.update()
+    print("body position after update 3:", walker.body_pos)
+    
+   
         
