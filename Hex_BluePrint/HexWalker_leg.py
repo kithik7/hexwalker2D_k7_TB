@@ -41,8 +41,8 @@ class Leg:
         #fwd_rotated + stance_amp/2 is the resultant stride vector post rotation , each EP is #half a stride length
         self.PEP = self.TarsusPosition - stride_vector
 
-    #define vector and distance dependent properties using @property that acts as an attribute but iteration friendly
-    # distance to PEP = vector whihc is the distance from tarsus pos to PEP 
+    #define vector and distance dependent properties using @property that acts as an attribute but is iteration friendly
+    # distance to PEP = vector which is the distance from tarsus pos to PEP 
     @property 
     def DistToPEP(self):
         return np.linalg.norm(self.PEP - self.TarsusPosition)
@@ -116,7 +116,7 @@ L1 = label
 [ 0. -1.  0.] PEP vector normalized for constant stance step size (dir independent of dist)
 [0. 1. 0.] AEP vector nornalized for constant swing step size (dir independent of dist)
 [0.   0.38 0.  ] updated tarsus position after update method 
-True updated ground conhtact status 
+True updated ground contact status 
 
 above = 1 iteration tarsus position moved from 0.4 iniital to 0.38 ie 0.02 stance step backwards towards pep and therefore ground contact = true because dist to pep has 0.13 units to go before switching to swing and updating tarsus position with normAEP * swing step 
 
