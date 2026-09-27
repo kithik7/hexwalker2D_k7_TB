@@ -13,7 +13,7 @@ from svgpathtools import svg2paths
 
 #svg2paths returns 2 things stored in paths and attributes 
 
-paths, attributes = svg2paths('fly_sil.svg')
+paths, attributes = svg2paths('/home/kithi_k7/Desktop/Keerthi/MSc_Thesis/HexWalker/Hex_BluePrint/fly_sil.svg')
 print(len(paths))
 
 #sample 500 points
@@ -46,14 +46,40 @@ print(points[:3])
 
 import matplotlib.pyplot as plt
 
+import matplotlib.pyplot as plt
+
+# attachment point midpoints
+origins = [
+    np.array([-0.262,  0.152, 0.0]),  # L1
+    np.array([-0.263,  0.045, 0.0]),  # L2
+    np.array([-0.266, -0.162, 0.0]),  # L3
+    np.array([ 0.237,  0.162, 0.0]),  # R1
+    np.array([ 0.243,  0.045, 0.0]),  # R2
+    np.array([ 0.253, -0.174, 0.0]),  # R3
+]
+labels = ['L1', 'L2', 'L3', 'R1', 'R2', 'R3']
+
 fig, ax = plt.subplots(figsize=(6, 8))
 ax.plot(points[:, 0], points[:, 1], color='#4a4a6a', linewidth=1.5)
+
+for origin, label in zip(origins, labels):
+    ax.plot(origin[0], origin[1], 'o', color='#c0392b', markersize=8)
+    ax.annotate(label, (origin[0], origin[1]), textcoords="offset points", xytext=(5, 5))
+
 ax.set_aspect('equal')
 ax.grid(True, alpha=0.3)
-ax.set_title('Hexapod body outline')
+ax.set_title('Hexapod body outline with attachment points')
 plt.show()
-
 """
 coda
+
+"""
+
+"""
+leg attachment coordinates: each leg has a top junction and bottom junction, the mid pt is the attachment pt 
+Left Fore : (-0.259, -0.189)(-0.265, 0.114), Right Fore : (0.226, 0.203) (0.237, 0.162)
+Left Mid : (-0.259, 0.068)(-0.266, 0.022) , Right Mid : (0.241, 0.071) (0.244, 0.018)
+Left Hind : (-0.271, -0.143) (-0.261, -0.181), Right Hind : (-0.253, -0.151) (0.252, -0.197)
+
 
 """
