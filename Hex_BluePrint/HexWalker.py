@@ -55,6 +55,7 @@ class Walker:
         return displacement
 
 #without rotation (net turning yet) 
+# ||: for each leg 
     def update(self):
         for leg in self.legs:
             leg.update() 
@@ -80,6 +81,10 @@ if __name__ == "__main__":
 
     walker.update()
     print("body position after update 3:", walker.body_pos)
-    
+
+"""
+Coda 
+
+"""
    
         
