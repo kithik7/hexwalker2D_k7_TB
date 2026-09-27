@@ -10,7 +10,7 @@ Dendroctonus ponderosae by Kristina Gagalova
 # /Users/keerthikesavan/Desktop/Keerthi/MSc_Thesis/hexwalker2D_k7_TB/Hex_BluePrint/hexa_sil.svg
 import numpy as np 
 from svgpathtools import svg2paths 
-
+import os
 #svg2paths returns 2 things stored in paths and attributes 
 
 paths, attributes = svg2paths('/home/kithi_k7/Desktop/Keerthi/MSc_Thesis/HexWalker/Hex_BluePrint/fly_sil.svg')
@@ -70,6 +70,10 @@ ax.set_aspect('equal')
 ax.grid(True, alpha=0.3)
 ax.set_title('Hexapod body outline with attachment points')
 plt.show()
+np.save(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'leg_origins.npy'), np.array(origins))
+np.save(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'body_outline.npy'), points)
+
+#leg_origins npy contains 6x3 array of attachment points for each leg 
 """
 coda
 
