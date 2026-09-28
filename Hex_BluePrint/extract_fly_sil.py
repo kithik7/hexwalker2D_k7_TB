@@ -41,7 +41,6 @@ points[:, 1] = (points[:, 1] - (y_min + y_max) / 2) / (y_max - y_min)
 points[:, 1] = -points[:, 1]
 points[:, 0] = -points[:, 0]
 points[:, 1] = -points[:, 1]
-
 print(points[:3])
 
 import matplotlib.pyplot as plt
@@ -70,9 +69,12 @@ ax.set_aspect('equal')
 ax.grid(True, alpha=0.3)
 ax.set_title('Hexapod body outline with attachment points')
 plt.show()
+body_mask = (np.abs(points[:, 0]) < 0.28)
+body_only = points[body_mask]
+np.save(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'body_only_outline.npy'), body_only)
 np.save(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'leg_origins.npy'), np.array(origins))
 np.save(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'body_outline.npy'), points)
-
+print("to dear Klaus, sorry i erased your legs")
 #leg_origins npy contains 6x3 array of attachment points for each leg 
 """
 coda
@@ -85,5 +87,7 @@ Left Fore : (-0.259, -0.189)(-0.265, 0.114), Right Fore : (0.226, 0.203) (0.237,
 Left Mid : (-0.259, 0.068)(-0.266, 0.022) , Right Mid : (0.241, 0.071) (0.244, 0.018)
 Left Hind : (-0.271, -0.143) (-0.261, -0.181), Right Hind : (-0.253, -0.151) (0.252, -0.197)
 
-
+update: body outline sits roughly between x = -0.3 +0.3 and legs extend beyond this range
+values within this x range are the body, points outside are legs 
+so draw leg lines 
 """

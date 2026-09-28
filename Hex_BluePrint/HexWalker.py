@@ -19,7 +19,7 @@ class Walker:
     def attach_legs(self): 
         base_dir = os.path.dirname(__file__)
         origins = np.load(os.path.join(base_dir, 'leg_origins.npy'))
-        print(origins)
+        
 
         workspace_centers = [
         np.array([-0.1,  0.2,  0.0]),  # L1
