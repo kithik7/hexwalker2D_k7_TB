@@ -10,7 +10,7 @@ dependencies: scipy, numpy, matplotlib, svgpathtools
 
 ## Branches
 - `main` clean stable code
-- `dev` baustelle :  (everything you would like to see awaits you in branch : dev)
+- `dev` baustelle 
 
 ## As of 28-09-2026
 
