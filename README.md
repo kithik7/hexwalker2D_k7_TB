@@ -3,6 +3,6 @@ An OOP based modular software to simulate walking in a six legged agent. (Kithi'
 
 
 ## Branches
-- `main` clean stable code
-- `dev` baustelle :  (everything you would like to see awaits you in branch : dev)
+- `main` clean and stable final versions code
+- `dev` baustelle 
 - dev gets updated dynamically, so dev_README.md also does consequently. 
