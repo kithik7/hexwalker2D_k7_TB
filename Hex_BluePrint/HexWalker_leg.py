@@ -21,7 +21,7 @@ class Leg:
         self.workspace_radius = workspace_radius #draws the outline for visualisation 
 
 
-        # default values are needed so __init__ sets these values that every leg 
+        # default values are needed so __init__ sets the values that every leg 
         # starts with
         #regardless of what is passed in 
         self.StanceAmp = 0.3 

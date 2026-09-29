@@ -3,81 +3,112 @@ da capo
 """
 import numpy as np 
 import matplotlib.pyplot as plt 
-from matplotlib.animation import FuncAnimation 
+from matplotlib.animation import FuncAnimation
 import os 
 from HexWalker import Walker
 
-fig, ax = plt.subplots(figsize=(8,8))
-ax.set_xlim(-0.8, 0.8)
-ax.set_ylim(-0.8, 0.8)
-ax.set_aspect('equal')
-ax.grid(True, alpha=0.3)
+class Hex_Sim: 
+    def __init__(self, world_size, dt, body_scale):
+        self.world_size = world_size
+        self.dt = dt
+        self.body_scale = body_scale
+        
+        self.walker = Walker(1, 'Klaus', np.array([0.0, 0.0, 0.0]), 0.0, body_scale=0.3)
+        self.fig, self.ax = plt.subplots(figsize=(12,12))
+        self.ax.set_xlim(-self.world_size/2, self.world_size/2)
+        self.ax.set_ylim(-self.world_size/2, self.world_size/2)
+        self.ax.set_aspect('equal')
+        self.ax.set_facecolor('#f5f5f0')
+        self.ax.grid(True, alpha=0.2)
+        self._setup_painter()
+        #load body_only_outline.npy
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        self.body_only = np.load(os.path.join(base_dir, 'body_only_outline.npy')) * self.body_scale
+    """
+    all matplotlib objects animated in my simulation is now a method called internally by the class
+    it comprises 6 tarsus dots, six leg lines, body outline, trajectory line 
 
-#create walker's form 
-body_pos = np.array([0.0, 0.0, 0.0])
-walker = Walker(1, 'Klaus', body_pos, 0.0)
-colors = ['#4a4a6a', '#7a6a9a', '#5a8a7a', '#c0392b', '#8a6a3a', '#3a6a8a']
-tarsus_dots = [ax.plot([], [], 'o', color=colors[i], markersize=10, linestyle='none')[0] 
-        for i in range(6)]
-#plot tarsus dots w/ six different colors 
+    """
+    def _setup_painter(self): #underscore before setup implies the method is only internal.class 
+        #tarsus dots 
+        self.tarsus_dots = []
+        for i in range(6):
+            dot, = self.ax.plot([], [], 'o', color='#e8000b', markersize=8)
+            self.tarsus_dots.append(dot)
 
-#[0] at the end unpacks the line object from list that ax.plot return and live in all frames with different states
-#updated rather than recreated 
+            #leg lines
+        self.leg_lines = []
+        for i in range(6): 
+            line, = self.ax.plot([], [], "-", color='#7a7a8a', linewidth=2.0)
+            self.leg_lines.append(line)
 
-#carve a trajectory line through this space 
-trajectory_x = []
-trajectory_y = []
-trajectory_line, = ax.plot([], [], '-', color = "#9a9a9a", linewidth = 1, alpha = 0.5)
+        #body outline 
+        self.body_line, = self.ax.plot([], [], '-', color='#4a4a6a', linewidth=1.5)
 
-#load body outline frok extract_fly_sil
-base_dir = os.path.dirname(os.path.abspath(__file__))
-outline_points = np.load(os.path.join(base_dir, "body_only_outline.npy"))
-body_line, = ax.plot([], [], "-", color= "#4a416a", linewidth = 2.0)
-leg_lines = [] #glissando 
-for i in range(6): 
-    line, = ax.plot([], [], '-', color='#7a7a8a', linewidth=2.5)
-    leg_lines.append(line)
-#comma unpacks line object from list that ax.plot returns else it renders nothing 
+        #trajectory 
+        self.trajectory_x = []
+        self.trajectory_y = []
+        self.trajectory_line, = self.ax.plot([], [], '-', color='#3888D4', linewidth=1.0, alpha=0.8)
 
 
-#define a method to finally animate 
-def animate(frame): 
-    walker.update()
-    #draw outline by bdy position 
-    body_x = outline_points[:, 0] + walker.body_pos[0]
-    body_y = outline_points[:, 1] + walker.body_pos[1]
-    body_line.set_data(body_x, body_y)
+    def animate(self, frame): 
+        self.walker.update()
+        for leg in self.walker.legs:
+            print(leg.leg_label, leg.origin_pt, leg.TarsusPosition)
+        body_x = self.body_only[:, 0] + self.walker.body_pos[0]
+        body_y = self.body_only[:, 1] + self.walker.body_pos[1]
+        self.body_line.set_data(body_x, body_y)
     
-    for i, leg in enumerate(walker.legs):
-        world_x = leg.TarsusPosition[0] + walker.body_pos[0]
-        world_y = leg.TarsusPosition[1] + walker.body_pos[1]
-        tarsus_dots[i].set_data([world_x], [world_y])
-        ox = leg.origin_pt[0] + walker.body_pos[0]
-        oy = leg.origin_pt[1] + walker.body_pos[1]
-        leg_lines[i].set_data([ox, world_x], [oy, world_y])
-        #enumerate gives you both index i and the item leg simultaneously, set_data updates dot relative to 
-        #current tarsus position
-    cx, cy = walker.body_pos[0], walker.body_pos[1]
-    ax.set_xlim(cx - 0.8, cx + 0.8)
-    ax.set_ylim(cy- 0.8, cy+ 0.8)
-     #update walker > read current body position > shift axis lim with 0.8 units on each side 
-     #to follow the walker 
-     #append current body pos to trajectory list and update trajectory 
-
-    trajectory_x.append(walker.body_pos[0])
-    trajectory_y.append(walker.body_pos[1])
-    trajectory_line.set_data(trajectory_x, trajectory_y)
+        for i, leg in enumerate(self.walker.legs):
+            world_x = leg.TarsusPosition[0] + self.walker.body_pos[0]
+            world_y = leg.TarsusPosition[1] + self.walker.body_pos[1]
+            self.tarsus_dots[i].set_data([world_x], [world_y])
+            ox = leg.origin_pt[0] + self.walker.body_pos[0]
+            oy = leg.origin_pt[1] + self.walker.body_pos[1]
+            self.leg_lines[i].set_data([ox, world_x], [oy, world_y])
     
-    return tarsus_dots + leg_lines + [body_line, trajectory_line]
+        self.trajectory_x.append(self.walker.body_pos[0])
+        self.trajectory_y.append(self.walker.body_pos[1])
+        self.trajectory_line.set_data(self.trajectory_x, self.trajectory_y)
+    
+        return self.tarsus_dots + self.leg_lines + [self.body_line, self.trajectory_line]
+        
+        #now the run is also a method 
+    def run(self):
+        self.anim = FuncAnimation(self.fig, self.animate, frames=2000, interval=20, blit=False)
+        plt.show()
 
+#separate class from opening the animation itself with __name__ == '__main__":
+if __name__ == "__main__":
+    sim = Hex_Sim(world_size=20, dt=0.1, body_scale=6.0)
+    sim.run()
+    #only runs when the file is executed directly alike test blocks in class leg and walker 
 
-anim = FuncAnimation(fig, animate, frames=500, interval=20, blit=False)
-plt.show()
+            
+"""
+Coda
+"""
 
 """
 render version 1: static legs that didnt move with the tarsus position dots, therefore, 
 she cut off its legs in extract_fly_sil and updated os.path.dir to body_only_outline
 body outline sits roughly between x = -0.3 +0.3 and legs extend beyond this range"
 
-"""
 
+updates
+making hex_sim a class
+adding body scale to HexWalker.py Walker class init , then in attach legs - multiply by the scale that i set - so the attachment points and the workspace center scaling is consistent 
+
+workspace radius is therefore also scaled 
+
+call walker for HexSim init which will have bodyscale 
+animate is a class, run is a class, and this script is only executed when run directly
+
+
+TO DO: Body scaling needs to be modular and not condition specific, attachment points and workspace centers
+need to be expressed 
+as fractions of the body that is defined and normalized to have a unit length of 1, and multiplying the whole
+with a scaling factor will scale them all, like item.children basically 
+
+
+"""
