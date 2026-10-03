@@ -7,29 +7,28 @@ from HexWalker_leg import Leg
 import os
 
 class Walker: 
-    def __init__(self, ID, label, body_pos, body_orient, body_scale = 1.0):
+    def __init__(self, ID, label, body_pos, body_orient, body_scale = 1.0, reach_factor=0.5):
         self.ID = ID 
         self.label = label 
         self.body_pos = body_pos 
         self.body_orient = body_orient
         self.body_scale = body_scale 
+        self._reach_factor = reach_factor
         self.legs = [] #list to hold leg objects)
         self.attach_legs() #six legs six labels and IDs six workspace centres, six workspace radii 
         # for visualisation and 6 diff origin points 
-
+        # reach_factor = frac{body size} ie ws centre is n body units away 
     def attach_legs(self): 
         base_dir = os.path.dirname(__file__)
         origins = np.load(os.path.join(base_dir, 'leg_origins.npy')) * self.body_scale
         
-        workspace_centers = [
-        np.array([-0.1,  0.2,  0.0]),  # L1
-        np.array([-0.2,  0.0,  0.0]),  # L2
-        np.array([-0.1, -0.25, 0.0]),  # L3
-        np.array([ 0.1,  0.2,  0.0]),  # R1
-        np.array([ 0.2,  0.0,  0.0]),  # R2
-        np.array([ 0.1, -0.25, 0.0]),  # R3
-        ]
-        workspace_centers = [ws * self.body_scale for ws in workspace_centers]
+        workspace_centers = []
+        for origin in origins:
+            outward_dir = origin / np.linalg.norm(origin)
+            workspace_center = outward_dir * self.reach_factor * self.body_scale
+            workspace_centers.append(workspace_center)
+
+        
         
         leg_labels = ['L1', 'L2', 'L3', 'R1', 'R2', 'R3']
         workspace_radius = 0.2 * self.body_scale
