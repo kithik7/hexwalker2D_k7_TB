@@ -38,7 +38,6 @@ dependencies: scipy, numpy, matplotlib, svgpathtools
 ## To do and revisit> 29/09/26
 - **visualisation**
 _scale walker and world inversely proportionate to each other, change tarsusdots colors, pick a simpler silhouette maybe, add time step dt since animation moves according to default funcanimation frame rate i set (necessary for speed and heading control)_
-add noise
 clean code
 add pytest framework 
 
