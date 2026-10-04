@@ -1,5 +1,5 @@
 """
-de capo
+
 
 License credits : https://creativecommons.org/licenses/by-sa/3.0/
 Dendroctonus ponderosae by Kristina Gagalova

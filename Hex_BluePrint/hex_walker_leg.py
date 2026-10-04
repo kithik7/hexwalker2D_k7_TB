@@ -1,125 +1,164 @@
 """
-Da Capo 
+hex_walker_leg.py 
 
+Defines a single leg of a six legged walking agent. 
+Each leg maintains its own stepping state, position, and geometry.
+No information about other legs or the body is known to the leg. 
 """
 
 import numpy as np 
-import matplotlib.pyplot as plt
+from scipy.spatial.transform import Rotation 
 
-#file contains one class called HexWalker Leg
-#class method = __init__ the constructor (receives info: ID, leg label, origin point, 
-#workspace center - offset from origin to the middle leg of the reacahable zone
-#workspace radius - how large the reachable zone is
 
-#INSIDE CLASS leg, init stores each leg on the object it"self" 
-class Leg:
-    def __init__(self, ID, leg_label, origin_pt, workspace_center, workspace_radius):
-        self.ID = ID
-        self.leg_label = leg_label 
-        self.origin_pt = origin_pt 
+class HexWalkerLeg:
+
+    def __init__(
+        self, 
+        leg_id: int, 
+        leg_label: str, 
+        origin: np.ndarray, 
+        workspace_center: np.ndarray,
+        workspace_radius: float, 
+    ) -> None: 
+        
+        self._store_identity(
+            leg_id,
+            leg_label, 
+            origin, 
+            workspace_center, 
+            workspace_radius, 
+        )
+        self._set_default_parameters()
+        self._initialise_tarsus_position()
+        self._calculate_stride_endpoints()
+
+    def _store_identity(
+        self,
+        leg_id: int, 
+        leg_label: str, 
+        origin: np.ndarray, 
+        workspace_center: np.ndarray,
+        workspace_radius: float, 
+    ) -> None:
+        self.leg_id = leg_id
+        self.leg_label = leg_label
+        self.origin = origin 
         self.workspace_center = workspace_center
-        self.workspace_radius = workspace_radius #draws the outline for visualisation 
+        self.workspace_radius = workspace_radius
 
+    def _set_default_parameters(self) -> None: 
+        self.stride_amplitude = 0.3
+        self.stance_step_size = 0.02 
+        self.swing_step_size = 0.03 
+        self.ground_contact = True 
+        self.stride_orientation = 0.0
+        self.noise_level = 0.0
 
-        # default values are needed so __init__ sets the values that every leg 
-        # starts with
-        #regardless of what is passed in 
-        self.StanceAmp = 0.3 
-        self.StanceStep = 0.02 #andante
-        self.SwingStep = 0.03 #allegro
-        self.GroundContact = True #Fermata (hold if true) 
-        self.StanceOrientation = 0.0
-        self.TarsusPosition = origin_pt + workspace_center 
-        #calculate stde, AEP, PEP, anmd implement rotaion matrix M 
-        M = np.array([[np.cos(self.StanceOrientation), -np.sin(self.StanceOrientation), 0],
-                      [np.sin(self.StanceOrientation), np.cos(self.StanceOrientation), 0],
-                      [0, 0, 1]])
-        fwd = np.array([0,1,0])
-        fwd_rotated = M @ fwd #matrix multiplied w vector resulting in rotated stride axis 
-        stride_vector = fwd_rotated * self.StanceAmp/2 
-        self.AEP = self.TarsusPosition + stride_vector 
-        #fwd_rotated + stance_amp/2 is the resultant stride vector post rotation , each EP is #half a stride length
-        self.PEP = self.TarsusPosition - stride_vector
+    def _initialise_tarsus_position(self) -> None: 
+        self.tarsus_position = self.origin + self.workspace_center
 
-    #define vector and distance dependent properties using @property that acts as an attribute but is iteration friendly
-    # distance to PEP = vector which is the distance from tarsus pos to PEP 
-    @property 
-    def DistToPEP(self):
-        return np.linalg.norm(self.PEP - self.TarsusPosition)
-    @property 
-    def DistToAEP(self):
-        return np.linalg.norm(self.AEP - self.TarsusPosition)
-    @property 
-    def VectorToPEP(self):
-        return self.PEP - self.TarsusPosition
+    def _calculate_stride_endpoints(self) -> None: 
+        rotation_matrix = self._build_rotation_matrix()
+        stride_vector = self._calculate_stride_vector(rotation_matrix)
+        self.anterior_extreme_position = self.tarsus_position + stride_vector
+        self.posterior_extreme_position = self.tarsus_position - stride_vector
+        self.noisy_anterior_extreme_position = self.anterior_extreme_position.copy()
+        self.noisy_posterior_extreme_position = self.posterior_extreme_position.copy()
+
+    def _build_rotation_matrix(self) -> np.ndarray: 
+        rotation = Rotation.from_euler('z', self.stride_orientation)
+        return rotation.as_matrix()
+
+    def _calculate_stride_vector(self, rotation_matrix) -> np.ndarray: 
+        forward_direction = np.array([0,1,0])
+        rotated_forward_direction = rotation_matrix @ forward_direction
+        stride_vector = rotated_forward_direction * self.stride_amplitude / 2 
+        return stride_vector 
+    
     @property
-    def VectorToAEP(self):
-        return self.AEP - self.TarsusPosition
-    @property 
-    def VectorToPEP_normal(self):
-        if self.DistToPEP == 0: 
-            return np.array([0.0, 0.0, 0.0])
-        return self.VectorToPEP / self.DistToPEP
-    @property 
-    def VectorToAEP_normal(self):
-        if self.DistToAEP == 0: 
-            return np.array([0.0, 0.0, 0.0])
-        return self.VectorToAEP / self.DistToAEP
+    def distance_to_posterior_extreme(self) -> float:
+        return np.linalg.norm(self.posterior_extreme_position - self.tarsus_position)
 
-    """
-    def update method to elicit stepwise sharps # AEPSharp and PEPSharp 
-    1) check if leg should switch stance depending on disttoAEP or PEP <= stance or swing step , 2) update tarsus position depending on groundcontact True or False and initiate movement by adding norm vectors * stancestep or swingstep to tarsus position
+    @property 
+    def distance_to_anterior_extreme(self) -> float:
+        return np.linalg.norm(self.anterior_extreme_position - self.tarsus_position)
 
-    """
-    def update(self): 
-        if self.DistToPEP <= self.StanceStep and self.GroundContact: #Fermata
-            self.GroundContact = False #switch to swing and then add normAEP x swing to tarsus
-        elif self.DistToAEP <= self.SwingStep and not self.GroundContact: #Tacet
-            self.GroundContact = True #switch to stance and then add normPEP x stance to tarsus 
-        if self.GroundContact:
-            self.TarsusPosition += self.VectorToPEP_normal * self.StanceStep
+    @property
+    def vector_to_posterior_extreme(self) -> np.ndarray:
+        return self.posterior_extreme_position - self.tarsus_position
+
+    @property
+    def vector_to_anterior_extreme(self) -> np.ndarray:
+        return self.anterior_extreme_position - self.tarsus_position
+
+    @property
+    def normalized_vector_to_posterior_extreme(self) -> np.ndarray:
+        if self.distance_to_posterior_extreme == 0: 
+            return np.zeros(3)
+        return self.vector_to_posterior_extreme / self.distance_to_posterior_extreme
+
+    @property
+    def normalized_vector_to_anterior_extreme(self) -> np.ndarray:
+        if self.distance_to_anterior_extreme == 0: 
+            return np.zeros(3)
+        return self.vector_to_anterior_extreme / self.distance_to_anterior_extreme
+    
+    def update(self, dt: float) -> None: 
+        self._check_state_transition(dt)
+        self._move_tarsus(dt)
+
+    def _check_state_transition(self, dt: float) -> None:
+        if self.ground_contact and self.distance_to_posterior_extreme <= self.stance_step_size * dt:
+            self.ground_contact = False 
+            self._draw_noisy_anterior_extreme_position()
+        elif not self.ground_contact and self.distance_to_anterior_extreme <= self.swing_step_size * dt:
+            self.ground_contact = True
+            self._draw_noisy_posterior_extreme_position()
+            
+    def _move_tarsus(self, dt: float) -> None:
+        if self.ground_contact:
+            self.tarsus_position += self.normalized_vector_to_posterior_extreme * self.stance_step_size * dt
         else:
-            self.TarsusPosition += self.VectorToAEP_normal * self.SwingStep
+            self.tarsus_position += self.normalized_vector_to_anterior_extreme * self.swing_step_size * dt   
 
-# CODA :|| rhythmic leg ostinato 
-# if name = main keeps testing block tied to this hexleg code ,  wont be run if another script calls it
+    def _draw_noisy_anterior_extreme_position(self) -> None:
+        noise = np.random.multivariate_normal(
+            mean=[0.0, 0.0],
+            cov=[[self.noise_level, 0.0], [0.0, self.noise_level]],
+        )
+        noise_offset = np.append(noise, 0.0)
+        self.noisy_anterior_extreme_position = self.anterior_extreme_position + noise_offset
+
+    def _draw_noisy_posterior_extreme_position(self) -> None: 
+        noise = np.random.multivariate_normal(
+            mean=[0.0, 0.0],
+            cov=[[self.noise_level, 0.0], [0.0, self.noise_level]],
+        )
+        noise_offset = np.append(noise, 0.0)
+        self.noisy_posterior_extreme_position = self.posterior_extreme_position + noise_offset
+
+        #TODO: create pytest framework to test HexWalkerLeg 
+        
+#temporary test - remove when TODO is complete 
 if __name__ == "__main__":
-    origin = np.array([0.1, 0.2, 0.0])
-    workspace_center = np.array([-0.1, 0.2, 0.0])
-    leg = Leg(1, "L1", origin, workspace_center, 0.2) #call init to create leg with prescribed syntax param 
-    print(leg.ID)
-    print(leg.leg_label)
-    print(leg.TarsusPosition)
-    print(leg.AEP)
-    print(leg.PEP)
-    print(leg.DistToPEP)
-    print(leg.DistToAEP)
-    print(leg.VectorToPEP)
-    print(leg.VectorToAEP)
-    print(leg.VectorToPEP_normal)   
-    print(leg.VectorToAEP_normal)
-    leg.update()
-    print(leg.TarsusPosition)
-    print(leg.GroundContact)
-# ||: for each leg 
+    origin = np.array([0.0, 0.0, 0.0])
+    workspace_center = np.array([0.0, 0.2, 0.0])
+    leg = HexWalkerLeg(
+        leg_id=1,
+        leg_label='L1',
+        origin=origin,
+        workspace_center=workspace_center,
+        workspace_radius=0.2,
+    )
 
-    """
-    1
-L1 = label
-[0.  0.4 . 0] Tarsus position
-[0.   0.55 0.  ] AEP
-[0.   0.25 0.  ] PEP
-0.15000000000000002 dist to PEP
-0.15000000000000002 dist to AEP
-[ 0.   -0.15  0.  ] raw dist to PEP vector
-[0.   0.15 0.  ] raw dist to AEP vector
-[ 0. -1.  0.] PEP vector normalized for constant stance step size (dir independent of dist)
-[0. 1. 0.] AEP vector nornalized for constant swing step size (dir independent of dist)
-[0.   0.38 0.  ] updated tarsus position after update method 
-True updated ground contact status 
+    # test AEP is 0.15 units ahead of tarsus position
+    expected_aep_y = workspace_center[1] + 0.15
+    assert abs(leg.anterior_extreme_position[1] - expected_aep_y) < 1e-10, \
+        f"AEP y expected {expected_aep_y}, got {leg.anterior_extreme_position[1]}"
 
-above = 1 iteration tarsus position moved from 0.4 iniital to 0.38 ie 0.02 stance step backwards towards pep and therefore ground contact = true because dist to pep has 0.13 units to go before switching to swing and updating tarsus position with normAEP * swing step 
+    # test update moves tarsus toward PEP
+    initial_y = leg.tarsus_position[1]
+    leg.update(dt=0.1)
+    assert leg.tarsus_position[1] < initial_y, "Tarsus should move toward PEP"
 
-therefore test works and leg class functions as intended 
-
-"""
+    print("All tests passed.")

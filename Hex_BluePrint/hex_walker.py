@@ -1,19 +1,15 @@
-"""
-De Capo 
-
-"""
 import numpy as np
-from HexWalker_leg import Leg  
+from hex_walker_leg import HexWalkerLeg  
 import os
 
-class Walker: 
+class HexWalker: 
     def __init__(self, ID, label, body_pos, body_orient, body_scale = 1.0, reach_factor=0.5):
         self.ID = ID 
         self.label = label 
         self.body_pos = body_pos 
         self.body_orient = body_orient
         self.body_scale = body_scale 
-        self._reach_factor = reach_factor
+        self.reach_factor = reach_factor
         self.legs = [] #list to hold leg objects)
         self.attach_legs() #six legs six labels and IDs six workspace centres, six workspace radii 
         # for visualisation and 6 diff origin points 

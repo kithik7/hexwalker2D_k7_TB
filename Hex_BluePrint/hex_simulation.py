@@ -1,11 +1,9 @@
-"""
-da capo
-"""
+
 import numpy as np 
 import matplotlib.pyplot as plt 
 from matplotlib.animation import FuncAnimation
 import os 
-from HexWalker import Walker
+from hex_walker import HexWalker
 
 class Hex_Sim: 
     def __init__(self, world_size, dt, body_scale):
@@ -13,7 +11,7 @@ class Hex_Sim:
         self.dt = dt
         self.body_scale = body_scale
         
-        self.walker = Walker(1, 'Klaus', np.array([0.0, 0.0, 0.0]), 0.0, body_scale=6.0, reach_factor=0.3)
+        self.walker = HexWalker(1, 'Klaus', np.array([0.0, 0.0, 0.0]), 0.0, body_scale=6.0, reach_factor=0.3)
         self.fig, self.ax = plt.subplots(figsize=(12,12))
         self.ax.set_xlim(-self.world_size/2, self.world_size/2)
         self.ax.set_ylim(-self.world_size/2, self.world_size/2)
