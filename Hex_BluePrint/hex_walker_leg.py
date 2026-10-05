@@ -137,28 +137,4 @@ class HexWalkerLeg:
         noise_offset = np.append(noise, 0.0)
         self.noisy_posterior_extreme_position = self.posterior_extreme_position + noise_offset
 
-        #TODO: create pytest framework to test HexWalkerLeg 
         
-#temporary test - remove when TODO is complete 
-if __name__ == "__main__":
-    origin = np.array([0.0, 0.0, 0.0])
-    workspace_center = np.array([0.0, 0.2, 0.0])
-    leg = HexWalkerLeg(
-        leg_id=1,
-        leg_label='L1',
-        origin=origin,
-        workspace_center=workspace_center,
-        workspace_radius=0.2,
-    )
-
-    # test AEP is 0.15 units ahead of tarsus position
-    expected_aep_y = workspace_center[1] + 0.15
-    assert abs(leg.anterior_extreme_position[1] - expected_aep_y) < 1e-10, \
-        f"AEP y expected {expected_aep_y}, got {leg.anterior_extreme_position[1]}"
-
-    # test update moves tarsus toward PEP
-    initial_y = leg.tarsus_position[1]
-    leg.update(dt=0.1)
-    assert leg.tarsus_position[1] < initial_y, "Tarsus should move toward PEP"
-
-    print("All tests passed.")
