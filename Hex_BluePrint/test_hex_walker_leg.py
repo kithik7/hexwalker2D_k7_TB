@@ -24,6 +24,11 @@ def test_stride_amplitude_sets_correct_distance():
     expected = leg.stride_amplitude/2
     assert abs(leg.distance_to_anterior_extreme - expected) < 1e-10
 
+def test_zero_stride_orientation_gives_forward_stride():
+    leg = make_leg()
+    stride_vector = leg._calculate_stride_vector(leg._build_rotation_matrix())
+    assert stride_vector[1] > 0 
+
 def test_update_moves_tarsus_toward_posterior_extreme():
     leg = make_leg()
     initial_y = leg.tarsus_position[1]
