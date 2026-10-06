@@ -95,7 +95,7 @@ body outline sits roughly between x = -0.3 +0.3 and legs extend beyond this rang
 
 updates
 making hex_sim a class
-adding body scale to HexWalker.py Walker class init , then in attach legs - multiply by the scale that i set - so the attachment points and the workspace center scaling is consistent 
+adding body scale to HexWalker.py Walker class init , then in attach legs - multiply by the scale that i set - so the attachment points and the workspace centre scaling is consistent 
 
 workspace radius is therefore also scaled 
 
@@ -103,7 +103,7 @@ call walker for HexSim init which will have bodyscale
 animate is a class, run is a class, and this script is only executed when run directly
 
 
-TO DO: Body scaling needs to be modular and not condition specific, attachment points and workspace centers
+TO DO: Body scaling needs to be modular and not condition specific, attachment points and workspace centres
 need to be expressed 
 as fractions of the body that is defined and normalized to have a unit length of 1, and multiplying the whole
 with a scaling factor will scale them all, like item.children basically 

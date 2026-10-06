@@ -17,7 +17,7 @@ class HexWalkerLeg:
         leg_id: int, 
         leg_label: str, 
         origin: np.ndarray, 
-        workspace_center: np.ndarray,
+        workspace_centre: np.ndarray,
         workspace_radius: float, 
     ) -> None: 
         
@@ -25,7 +25,7 @@ class HexWalkerLeg:
             leg_id,
             leg_label, 
             origin, 
-            workspace_center, 
+            workspace_centre, 
             workspace_radius, 
         )
         self._set_default_parameters()
@@ -37,13 +37,13 @@ class HexWalkerLeg:
         leg_id: int, 
         leg_label: str, 
         origin: np.ndarray, 
-        workspace_center: np.ndarray,
+        workspace_centre: np.ndarray,
         workspace_radius: float, 
     ) -> None:
         self.leg_id = leg_id
         self.leg_label = leg_label
         self.origin = origin 
-        self.workspace_center = workspace_center
+        self.workspace_centre = workspace_centre
         self.workspace_radius = workspace_radius
 
     def _set_default_parameters(self) -> None: 
@@ -55,7 +55,7 @@ class HexWalkerLeg:
         self.noise_level = 0.0
 
     def _initialise_tarsus_position(self) -> None: 
-        self.tarsus_position = self.origin + self.workspace_center
+        self.tarsus_position = self.origin + self.workspace_centre
 
     def _calculate_stride_endpoints(self) -> None: 
         rotation_matrix = self._build_rotation_matrix()

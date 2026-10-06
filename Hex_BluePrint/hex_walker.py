@@ -18,11 +18,11 @@ class HexWalker:
         base_dir = os.path.dirname(__file__)
         origins = np.load(os.path.join(base_dir, 'leg_origins.npy')) * self.body_scale
         
-        workspace_centers = []
+        workspace_centres = []
         for origin in origins:
             outward_dir = origin / np.linalg.norm(origin)
-            workspace_center = outward_dir * self.reach_factor * self.body_scale
-            workspace_centers.append(workspace_center)
+            workspace_centre = outward_dir * self.reach_factor * self.body_scale
+            workspace_centres.append(workspace_centre)
 
         
         
@@ -30,7 +30,7 @@ class HexWalker:
         workspace_radius = 0.2 * self.body_scale
 
         for i in range(6):
-            leg = Leg(i+1, leg_labels[i], origins[i], workspace_centers[i], workspace_radius)
+            leg = Leg(i+1, leg_labels[i], origins[i], workspace_centres[i], workspace_radius)
             self.legs.append(leg)
 
             # alternating tripod starting pattern
@@ -86,7 +86,7 @@ Coda
 29/09: updates: body_scale, scaling in attach legs and workspace radius 
 the body scaling passes  onto __init__ in HexSim while creating the walker 
 
-TO DO: Body scaling needs to be modular and not condition specific, attachment points and workspace centers
+TO DO: Body scaling needs to be modular and not condition specific, attachment points and workspace centres
 need to be expressed 
 as fractions of the body that is defined and normalized to have a unit length of 1, and multiplying the whole
 with a scaling factor will scale them all, like item.children basically 

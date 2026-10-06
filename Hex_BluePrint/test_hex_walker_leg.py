@@ -7,7 +7,7 @@ def make_leg():
         leg_id=0,
         leg_label="leg_0",
         origin=np.array([0.0, 0.0, 0.0]),
-        workspace_center=np.array([0.0, 0.2, 0.0]),
+        workspace_centre=np.array([0.0, 0.2, 0.0]),
         workspace_radius=-.2,
     )
 
