@@ -105,7 +105,7 @@ animate is a class, run is a class, and this script is only executed when run di
 
 TO DO: Body scaling needs to be modular and not condition specific, attachment points and workspace centres
 need to be expressed 
-as fractions of the body that is defined and normalized to have a unit length of 1, and multiplying the whole
+as fractions of the body that is defined and normalised to have a unit length of 1, and multiplying the whole
 with a scaling factor will scale them all, like item.children basically 
 
 

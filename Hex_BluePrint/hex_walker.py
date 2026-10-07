@@ -1,96 +1,127 @@
-import numpy as np
-from hex_walker_leg import HexWalkerLeg  
-import os
+"""
+hex_walker.py 
+
+HexWalker: Receives an InsectBody object and creates six HexWalkerLeg objects 
+from the attachment points. It stores body_position and body_orientation 
+It gets tarsus positions, gets support polygon and calculates displacement in its update function
+No information known about the simulation or leg geometry.
+"""
+
+import numpy as np 
+from scipy.spatial import ConvexHull  
+from insect_body import InsectBody
+from hex_walker_leg import HexWalkerLeg 
 
 class HexWalker: 
-    def __init__(self, ID, label, body_pos, body_orient, body_scale = 1.0, reach_factor=0.5):
-        self.ID = ID 
-        self.label = label 
-        self.body_pos = body_pos 
-        self.body_orient = body_orient
-        self.body_scale = body_scale 
-        self.reach_factor = reach_factor
-        self.legs = [] #list to hold leg objects)
-        self.attach_legs() #six legs six labels and IDs six workspace centres, six workspace radii 
-        # for visualisation and 6 diff origin points 
-        # reach_factor = frac{body size} ie ws centre is n body units away 
-    def attach_legs(self): 
-        base_dir = os.path.dirname(__file__)
-        origins = np.load(os.path.join(base_dir, 'leg_origins.npy')) * self.body_scale
-        
-        workspace_centres = []
-        for origin in origins:
-            outward_dir = origin / np.linalg.norm(origin)
-            workspace_centre = outward_dir * self.reach_factor * self.body_scale
-            workspace_centres.append(workspace_centre)
+    def __init__(
+            self, 
+            walker_id: int, 
+            insect_body: InsectBody, 
+            body_position: np.ndarray,
+            body_orientation: float, 
+            dt: float, 
 
-        
-        
+    ) -> None: 
+        self.walker_id = walker_id 
+        self.insect_body = insect_body
+        self.body_position = body_position 
+        self.body_orientation = body_orientation 
+        self.dt = dt 
+        self.legs = []
+        self._attach_legs()
+        self._set_tripod_pattern()
+
+    def _attach_legs(self) -> None: 
+        """Create six HexWalkerLeg Objects from InsectBody attachment points"""
+        attachment_points = self.insect_body.attachment_points
+        workspace_centres = self._calculate_workspace_centres(attachment_points)
         leg_labels = ['L1', 'L2', 'L3', 'R1', 'R2', 'R3']
-        workspace_radius = 0.2 * self.body_scale
 
-        for i in range(6):
-            leg = Leg(i+1, leg_labels[i], origins[i], workspace_centres[i], workspace_radius)
+        for i in range(6): 
+            origin = np.append(attachment_points[i], 0.0)
+            leg = HexWalkerLeg(
+                leg_id=i+1,
+                leg_label=leg_labels[i],
+                origin=origin,
+                workspace_centre=workspace_centres[i],
+                workspace_radius=0.1
+            )
             self.legs.append(leg)
 
-            # alternating tripod starting pattern
-            # legs 0, 2, 4 start in swing
-        self.legs[0].GroundContact = False
-        self.legs[2].GroundContact = False
-        self.legs[4].GroundContact = False
+    def _calculate_workspace_centres(
+            self, 
+            attachment_points: np.ndarray, 
+    ) -> list:
+        """Calculate workspace centre in the protruding outward direction for each attachment point"""
+        body_edge_to_workspace_centre_distance = 0.15
+        centres = []
+        for point in attachment_points: 
+            outward_direction = point / np.linalg.norm(point)
+            centre = np.append(outward_direction * body_edge_to_workspace_centre_distance, 0.0)
+            centres.append(centre) #Leg class expects 3 element arrays, 
+        return centres 
 
-    def calculate_displacement(self): 
-        displacement = np.zeros(3)
-        grounded_count = 0
+    def _set_tripod_pattern(self) -> None: 
+        """Set alternating tripod starting pattern. Legs 0, 2, 4 start in swing."""
+        self.legs[0].ground_contact = False 
+        self.legs[2].ground_contact = False 
+        self.legs[4].ground_contact = False 
+
+    def update(
+            self,
+            dt: float
+    ) -> None:
+        """Update body position and orientation from displacement calculated from grounded legs."""
+        translation, rotation = self._calculate_displacement()
         for leg in self.legs: 
-            if leg.GroundContact: 
-                displacement += -leg.VectorToPEP_normal *leg.StanceStep 
-                grounded_count += 1 
-        if grounded_count > 0: 
-            displacement /= grounded_count
-        return displacement
+            leg.update(dt)
+        self.body_position[0] += translation[0]
+        self.body_position[1] += translation[1]
+        self.body_orientation += rotation
 
-#without rotation (no net turning yet) 
-# ||: for each leg 
-    def update(self):
-        for leg in self.legs:
-            leg.update() 
+    def _calculate_displacement(self) -> tuple:
+        displacement = np.zeros(3)
+        grounded_legs_count = 0
+        for leg in self.legs: 
+            if leg.ground_contact:
+                displacement += -leg.normalised_vector_to_posterior_extreme * leg.stance_step_size * self.dt
+                grounded_legs_count += 1
+        if grounded_legs_count > 0:
+            displacement /= grounded_legs_count
+        return displacement[:2], 0.0
 
-        #calculate displacement 
-        displacement = self.calculate_displacement()
+    def get_tarsus_positions(self) -> np.ndarray:
+        """Return tarsus positions in world coordinates"""
+        positions = []
+        for leg in self.legs: 
+            positions.append(leg.tarsus_position + self.body_position)
+        return np.array(positions)
 
-        #apply displacement to body position and orientation 
-        self.body_pos += displacement
-        self.body_orient += displacement[2]
+    def get_support_polygon_grounded_positions(self) -> np.ndarray: 
+        """Returns tarsus position of grounded legs"""
+        support_polygon_leg_positions = []
+        for leg in self.legs: 
+            if leg.ground_contact == True:
+                support_polygon_leg_positions.append(leg.tarsus_position + self.body_position)
+        return np.array(support_polygon_leg_positions)
+ 
+    def set_noise_level(
+            self,
+            noise_level: float,
+    ) -> None: 
+        for leg in self.legs: 
+            leg.noise_level = noise_level 
 
-#test_block        
-if __name__ == "__main__": 
-    import numpy as np 
-    body_pos = np.array([0.0, 0.0, 0.0])
-    walker = Walker(1, "Walker_01", body_pos, 0.0)
+    def set_curve_radius(
+            self,
+            curve_radius: float,
+    ) -> None: 
+        """Set stride orientation for each leg so walker can start curve walking"""
+        CURVE_FACTORS = [1, 0, -1, 1, 0, -1]
+        base_angle = 0.0 if curve_radius == 0 else 1.0 / curve_radius 
+        for i, leg in enumerate(self.legs):
+            leg.stride_orientation = CURVE_FACTORS[i] * base_angle
+            leg._calculate_stride_endpoints() #to recalculate AEP PEP based on new orientation
 
-    walker.update()
-    print("body position after update 1:", walker.body_pos)
 
-    walker.update()
-    print("body position after update 2:", walker.body_pos)
 
-    walker.update()
-    print("body position after update 3:", walker.body_pos)
-
-"""
-Coda 
-
-"""
-"""
-29/09: updates: body_scale, scaling in attach legs and workspace radius 
-the body scaling passes  onto __init__ in HexSim while creating the walker 
-
-TO DO: Body scaling needs to be modular and not condition specific, attachment points and workspace centres
-need to be expressed 
-as fractions of the body that is defined and normalized to have a unit length of 1, and multiplying the whole
-with a scaling factor will scale them all, like item.children basically 
-
-c
-"""
-        

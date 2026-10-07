@@ -92,13 +92,13 @@ class HexWalkerLeg:
         return self.anterior_extreme_position - self.tarsus_position
 
     @property
-    def normalized_vector_to_posterior_extreme(self) -> np.ndarray:
+    def normalised_vector_to_posterior_extreme(self) -> np.ndarray:
         if self.distance_to_posterior_extreme == 0: 
             return np.zeros(3)
         return self.vector_to_posterior_extreme / self.distance_to_posterior_extreme
 
     @property
-    def normalized_vector_to_anterior_extreme(self) -> np.ndarray:
+    def normalised_vector_to_anterior_extreme(self) -> np.ndarray:
         if self.distance_to_anterior_extreme == 0: 
             return np.zeros(3)
         return self.vector_to_anterior_extreme / self.distance_to_anterior_extreme
@@ -117,9 +117,9 @@ class HexWalkerLeg:
             
     def _move_tarsus(self, dt: float) -> None:
         if self.ground_contact:
-            self.tarsus_position += self.normalized_vector_to_posterior_extreme * self.stance_step_size * dt
+            self.tarsus_position += self.normalised_vector_to_posterior_extreme * self.stance_step_size * dt
         else:
-            self.tarsus_position += self.normalized_vector_to_anterior_extreme * self.swing_step_size * dt   
+            self.tarsus_position += self.normalised_vector_to_anterior_extreme * self.swing_step_size * dt   
 
     def _draw_noisy_anterior_extreme_position(self) -> None:
         noise = np.random.multivariate_normal(
