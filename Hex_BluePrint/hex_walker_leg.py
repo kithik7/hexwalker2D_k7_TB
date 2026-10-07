@@ -108,10 +108,10 @@ class HexWalkerLeg:
         self._move_tarsus(dt)
 
     def _check_state_transition(self, dt: float) -> None:
-        if self.ground_contact and self.distance_to_posterior_extreme <= self.stance_step_size * dt:
-            self.ground_contact = False 
+        if self.ground_contact and self.distance_to_posterior_extreme <= self.stance_step_size:
+            self.ground_contact = False
             self._draw_noisy_anterior_extreme_position()
-        elif not self.ground_contact and self.distance_to_anterior_extreme <= self.swing_step_size * dt:
+        elif not self.ground_contact and self.distance_to_anterior_extreme <= self.swing_step_size:
             self.ground_contact = True
             self._draw_noisy_posterior_extreme_position()
             

@@ -20,20 +20,25 @@ class HexWalker:
             body_position: np.ndarray,
             body_orientation: float, 
             dt: float, 
-
+            body_scale: float = 6.0
     ) -> None: 
         self.walker_id = walker_id 
         self.insect_body = insect_body
         self.body_position = body_position 
         self.body_orientation = body_orientation 
         self.dt = dt 
+        self.body_scale = body_scale
         self.legs = []
         self._attach_legs()
         self._set_tripod_pattern()
 
     def _attach_legs(self) -> None: 
         """Create six HexWalkerLeg Objects from InsectBody attachment points"""
-        attachment_points = self.insect_body.attachment_points
+        attachment_points = self.insect_body.attachment_points * self.body_scale
+        # sort into left and right, then front to back
+        left_points = sorted([p for p in attachment_points if p[0] < 0], key=lambda p: -p[1])
+        right_points = sorted([p for p in attachment_points if p[0] > 0], key=lambda p: -p[1])
+        attachment_points = np.array(left_points + right_points)
         workspace_centres = self._calculate_workspace_centres(attachment_points)
         leg_labels = ['L1', 'L2', 'L3', 'R1', 'R2', 'R3']
 
@@ -53,7 +58,7 @@ class HexWalker:
             attachment_points: np.ndarray, 
     ) -> list:
         """Calculate workspace centre in the protruding outward direction for each attachment point"""
-        body_edge_to_workspace_centre_distance = 0.15
+        body_edge_to_workspace_centre_distance = 0.08 * self.body_scale
         centres = []
         for point in attachment_points: 
             outward_direction = point / np.linalg.norm(point)
