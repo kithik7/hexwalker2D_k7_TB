@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
-from insect_body import InsectBody
-from hex_walker import HexWalker
+from hexwalker.core.hex_walker import HexWalker
+from hexwalker.body.insect_body import InsectBody
 
 
 @pytest.fixture

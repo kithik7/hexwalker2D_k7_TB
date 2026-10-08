@@ -9,8 +9,8 @@ No information known about the simulation or leg geometry.
 
 import numpy as np 
 from scipy.spatial import ConvexHull  
-from insect_body import InsectBody
-from hex_walker_leg import HexWalkerLeg 
+from hexwalker.body.insect_body import InsectBody
+from hexwalker.core.hex_walker_leg import HexWalkerLeg
 
 class HexWalker: 
     def __init__(

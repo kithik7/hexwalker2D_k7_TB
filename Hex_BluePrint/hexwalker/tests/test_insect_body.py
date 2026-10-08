@@ -1,5 +1,6 @@
 import pytest 
 import numpy as np 
+from hexwalker.body.insect_body import InsectBody
 
 def test_image_can_load():
 

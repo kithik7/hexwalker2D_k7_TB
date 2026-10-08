@@ -1,6 +1,6 @@
 import numpy as np 
 import pytest 
-from hex_walker_leg import HexWalkerLeg
+from hexwalker.core.hex_walker_leg import HexWalkerLeg
 
 def make_leg(): 
     return HexWalkerLeg(

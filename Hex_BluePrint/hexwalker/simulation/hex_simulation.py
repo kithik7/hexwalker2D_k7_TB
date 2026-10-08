@@ -5,28 +5,33 @@ HexSimulation is a class that contains the world, the visualisation and animatio
 It managers all drawing and has public methods accesible by the user 
 Has no information about HexWalkerLeg or computing parameters such as displacement
 """
+from pathlib import Path
 import numpy as np 
 import matplotlib.pyplot as plt 
 from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Slider
 from scipy.spatial import ConvexHull 
 import os 
-from insect_body import InsectBody
-from hex_walker import HexWalker
+from hexwalker.body.insect_body import InsectBody
+from hexwalker.core.hex_walker import HexWalker
 
 class HexSimulation: 
     def __init__(
             self,
             world_size: float = 20, 
             dt: float =0.05, 
-            body_scale: float =8.0, 
-            
+            body_scale: float =8.0,
+            source_path: str = None,         
     ) -> None: 
         self.world_size = world_size
         self.dt = dt
         self.body_scale = body_scale
-        print(f"body_scale: {self.body_scale}")
-        self.insect_body = InsectBody('Hex_BluePrint/flySilhouette.mat')
+
+        #default to mat file for outline if no other source provided 
+        if source_path is None:
+            source_path = str(Path(__file__).parent.parent / 'body' / 'flySilhouette.mat')
+
+        self.insect_body = InsectBody(source_path)
         self.walker = HexWalker(
             walker_id=1,
             insect_body=self.insect_body,
