@@ -174,12 +174,27 @@ class HexSimulation:
         outline = self.insect_body.normalised_outline * self.body_scale + body_pos[:2]
         self.body_line.set_data(outline[:, 0], outline[:, 1])
     
-        #AEP and PEP markers
+        #platonic aep pep markers 
         for i, leg in enumerate(self.walker.legs):
-            aep = leg.anterior_extreme_position + body_pos
-            pep = leg.posterior_extreme_position + body_pos
-            self.platonic_aep_markers[i].set_data([aep[0]], [aep[1]])
-            self.platonic_pep_markers[i].set_data([pep[0]], [pep[1]])
+            self.platonic_aep_markers[i].set_data(
+                [leg.anterior_extreme_position[0]], 
+                [leg.anterior_extreme_position[1]]
+            )
+            self.platonic_pep_markers[i].set_data(
+                [leg.posterior_extreme_position[0]], 
+                [leg.posterior_extreme_position[1]]
+            )
+
+        # noisy AEP and PEP markers
+        for i, leg in enumerate(self.walker.legs):
+            self.noisy_aep_markers[i].set_data(
+                [leg.noisy_anterior_extreme_position[0]],
+                [leg.noisy_anterior_extreme_position[1]]
+        )
+            self.noisy_pep_markers[i].set_data(
+                [leg.noisy_posterior_extreme_position[0]],
+                [leg.noisy_posterior_extreme_position[1]]
+        )
     
         #workspace circles
         for i, leg in enumerate(self.walker.legs):
