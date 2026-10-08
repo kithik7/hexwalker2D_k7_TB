@@ -8,6 +8,7 @@ No information about other legs or the body is known to the leg.
 
 import numpy as np 
 from scipy.spatial.transform import Rotation 
+from hexwalker.core.coordinate_mapper import CoordinateMapper
 
 
 class HexWalkerLeg:
@@ -31,6 +32,7 @@ class HexWalkerLeg:
         self._set_default_parameters()
         self._initialise_tarsus_position()
         self._calculate_stride_endpoints()
+        
 
     def _store_identity(
         self,
@@ -47,15 +49,16 @@ class HexWalkerLeg:
         self.workspace_radius = workspace_radius
 
     def _set_default_parameters(self) -> None: 
-        self.stride_amplitude = 0.3
+        self.stride_amplitude = 0.15
         self.stance_step_size = 0.02 
         self.swing_step_size = 0.03 
         self.ground_contact = True 
         self.stride_orientation = 0.0
         self.noise_level = 0.0
+        self.frame = CoordinateMapper(parent=None)
 
     def _initialise_tarsus_position(self) -> None: 
-        self.tarsus_position = self.origin + self.workspace_centre
+        self.tarsus_position = self.workspace_centre
 
     def _calculate_stride_endpoints(self) -> None: 
         rotation_matrix = self._build_rotation_matrix()

@@ -11,6 +11,7 @@ import numpy as np
 from scipy.spatial import ConvexHull  
 from hexwalker.body.insect_body import InsectBody
 from hexwalker.core.hex_walker_leg import HexWalkerLeg
+from hexwalker.core.coordinate_mapper import CoordinateMapper
 
 class HexWalker: 
     def __init__(
@@ -29,12 +30,21 @@ class HexWalker:
         self.dt = dt 
         self.body_scale = body_scale
         self.legs = []
+        
+        self.world_frame = CoordinateMapper(parent=None)
+        self.body_frame = CoordinateMapper(parent=self.world_frame)
+        self.body_frame.set_transform(self.body_position, angle=self.body_orientation, scale=self.body_scale) 
+        print("calling set_transform with scale:", self.body_scale)
+        self.body_frame.set_transform(self.body_position, angle=self.body_orientation, scale=self.body_scale)
+        print("body frame after set:", self.body_frame.local_transform)
         self._attach_legs()
+        for leg in self.legs:
+            print(leg.leg_label, leg.origin)
         self._set_tripod_pattern()
 
     def _attach_legs(self) -> None: 
         """Create six HexWalkerLeg Objects from InsectBody attachment points"""
-        attachment_points = self.insect_body.attachment_points * self.body_scale
+        attachment_points = self.insect_body.attachment_points 
         # sort into left and right, then front to back
         left_points = sorted([p for p in attachment_points if p[0] < 0], key=lambda p: -p[1])
         right_points = sorted([p for p in attachment_points if p[0] > 0], key=lambda p: -p[1])
@@ -49,16 +59,18 @@ class HexWalker:
                 leg_label=leg_labels[i],
                 origin=origin,
                 workspace_centre=workspace_centres[i],
-                workspace_radius=0.1
+                workspace_radius=0.15
             )
             self.legs.append(leg)
-
+            leg.frame.parent = self.body_frame
+            leg.frame.set_transform(np.append(attachment_points[i], 0.0), scale=1.0)
+    
     def _calculate_workspace_centres(
             self, 
             attachment_points: np.ndarray, 
     ) -> list:
         """Calculate workspace centre in the protruding outward direction for each attachment point"""
-        body_edge_to_workspace_centre_distance = 0.08 * self.body_scale
+        body_edge_to_workspace_centre_distance = 0.15
         centres = []
         for point in attachment_points: 
             outward_direction = point / np.linalg.norm(point)
@@ -83,6 +95,7 @@ class HexWalker:
         self.body_position[0] += translation[0]
         self.body_position[1] += translation[1]
         self.body_orientation += rotation
+        self.body_frame.set_transform(self.body_position, angle=self.body_orientation, scale=self.body_scale)
 
     def _calculate_displacement(self) -> tuple:
         displacement = np.zeros(3)
@@ -96,19 +109,19 @@ class HexWalker:
         return displacement[:2], 0.0
 
     def get_tarsus_positions(self) -> np.ndarray:
-        """Return tarsus positions in world coordinates"""
-        positions = []
-        for leg in self.legs: 
-            positions.append(leg.tarsus_position + self.body_position)
-        return np.array(positions)
+        """Return tarsus positions in world coordinates via kinematic chain."""
+        return np.array([
+            leg.frame.to_world(leg.tarsus_position) 
+            for leg in self.legs
+        ])
 
-    def get_support_polygon_grounded_positions(self) -> np.ndarray: 
-        """Returns tarsus position of grounded legs"""
-        support_polygon_leg_positions = []
-        for leg in self.legs: 
-            if leg.ground_contact == True:
-                support_polygon_leg_positions.append(leg.tarsus_position + self.body_position)
-        return np.array(support_polygon_leg_positions)
+    def get_support_polygon_grounded_positions(self) -> np.ndarray:
+        """Return grounded tarsus positions in world coordinates via kinematic chain."""
+        return np.array([
+            leg.frame.to_world(leg.tarsus_position)
+            for leg in self.legs
+            if leg.ground_contact
+        ])
  
     def set_noise_level(
             self,
@@ -123,7 +136,10 @@ class HexWalker:
     ) -> None: 
         """Set stride orientation for each leg so walker can start curve walking"""
         CURVE_FACTORS = [1, 0, -1, 1, 0, -1]
-        base_angle = 0.0 if curve_radius == 0 else 1.0 / curve_radius 
+        if curve_radius < 0.2:
+            base_angle = 0.0
+        else:
+            base_angle = 1.0 / curve_radius 
         for i, leg in enumerate(self.legs):
             leg.stride_orientation = CURVE_FACTORS[i] * base_angle
             leg._calculate_stride_endpoints() #to recalculate AEP PEP based on new orientation

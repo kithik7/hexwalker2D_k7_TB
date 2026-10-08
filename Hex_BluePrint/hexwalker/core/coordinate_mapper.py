@@ -28,21 +28,18 @@ class CoordinateMapper:
         homogenous = np.append(point[:3], 1.0)
         return (self.world_transform() @ homogenous)[:3]
 
-    def set_transform(self, translation: np.ndarray, angle: float) -> None:
+    def set_transform(
+        self,
+        translation: np.ndarray,
+        angle: float = 0.0,
+        scale: float = 1.0,
+    ) -> None:
+        """Set transform with optional scale and rotation."""
         c = np.cos(angle)
         s = np.sin(angle)
-        self.local_transform= np.array([
-            [c, -s, 0, translation[0]],
-            [s, c , 0, translation[1]],
-            [0, 0, 1, translation[2]],
-            [0, 0, 0, 1             ],
-        ])
-
-    def set_scale_translation(self, scale: float, translation: np.ndarray) -> None:
-        """Set a uniform scale and translation transform, no rotation."""
         self.local_transform = np.array([
-            [scale, 0,     0, translation[0] * scale],
-            [0,     scale, 0, translation[1] * scale],
-            [0,     0,     1, translation[2]         ],
-            [0,     0,     0, 1                      ],
+            [scale * c, -scale * s, 0, translation[0]],
+            [scale * s,  scale * c, 0, translation[1]],
+            [0,          0,         1, translation[2]],
+            [0,          0,         0, 1             ],
         ])
