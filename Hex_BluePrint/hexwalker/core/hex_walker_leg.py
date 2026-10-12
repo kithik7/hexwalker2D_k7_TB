@@ -9,7 +9,21 @@ No information about other legs or the body is known to the leg.
 import numpy as np 
 from scipy.spatial.transform import Rotation 
 from hexwalker.core.coordinate_mapper import CoordinateMapper
+from dataclasses import dataclass 
 
+@dataclass
+class LegGeometry:
+    leg_id: int
+    leg_label: str
+    ground_contact: bool
+    tarsus: np.ndarray
+    anterior_extreme: np.ndarray
+    posterior_extreme: np.ndarray
+    noisy_anterior_extreme: np.ndarray
+    noisy_posterior_extreme: np.ndarray
+    workspace_centre: np.ndarray
+    workspace_radius: float
+    origin: np.ndarray
 
 class HexWalkerLeg:
 
@@ -58,7 +72,7 @@ class HexWalkerLeg:
         self.frame = CoordinateMapper(parent=None)
 
     def _initialise_tarsus_position(self) -> None: 
-        self.tarsus_position = self.workspace_centre
+        self.tarsus_position = self.workspace_centre.copy()
 
     def _calculate_stride_endpoints(self) -> None: 
         rotation_matrix = self._build_rotation_matrix()
@@ -125,6 +139,9 @@ class HexWalkerLeg:
             self.tarsus_position += self.normalised_vector_to_anterior_extreme * self.swing_step_size * dt   
 
     def _draw_noisy_anterior_extreme_position(self) -> None:
+        if self.noise_level == 0.0:
+            self.noisy_anterior_extreme_position = self.anterior_extreme_position.copy()
+            return
         noise = np.random.multivariate_normal(
             mean=[0.0, 0.0],
             cov=[[self.noise_level, 0.0], [0.0, self.noise_level]],
@@ -133,6 +150,9 @@ class HexWalkerLeg:
         self.noisy_anterior_extreme_position = self.anterior_extreme_position + noise_offset
 
     def _draw_noisy_posterior_extreme_position(self) -> None: 
+        if self.noise_level == 0.0:
+                self.noisy_anterior_extreme_position = self.anterior_extreme_position.copy()
+                return
         noise = np.random.multivariate_normal(
             mean=[0.0, 0.0],
             cov=[[self.noise_level, 0.0], [0.0, self.noise_level]],
@@ -140,4 +160,18 @@ class HexWalkerLeg:
         noise_offset = np.append(noise, 0.0)
         self.noisy_posterior_extreme_position = self.posterior_extreme_position + noise_offset
 
-        
+    def get_geometry(self) -> 'LegGeometry':
+        """Return current leg state as a value object."""
+        return LegGeometry(
+            leg_id=self.leg_id,
+            leg_label=self.leg_label,
+            ground_contact=self.ground_contact,
+            tarsus=self.tarsus_position.copy(),
+            anterior_extreme=self.anterior_extreme_position.copy(),
+            posterior_extreme=self.posterior_extreme_position.copy(),
+            noisy_anterior_extreme=self.noisy_anterior_extreme_position.copy(),
+            noisy_posterior_extreme=self.noisy_posterior_extreme_position.copy(),
+            workspace_centre=self.workspace_centre.copy(),
+            workspace_radius=self.workspace_radius,
+            origin=self.origin.copy(),
+        )

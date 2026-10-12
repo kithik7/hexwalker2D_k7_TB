@@ -152,40 +152,37 @@ class HexSimulation:
         
     def animate(self, frame: int) -> list:
         """Update all visual elements for one timestep dt."""
-    
+
         self.walker.update(self.dt)
         body_pos = self.walker.body_position
+
+        # toroidal wrapping
         half = self.world_size / 2
         self.walker.body_position[0] = (self.walker.body_position[0] + half) % self.world_size - half
         self.walker.body_position[1] = (self.walker.body_position[1] + half) % self.world_size - half
-        self.walker.body_frame.set_transform(self.walker.body_position, self.walker.body_orientation, scale=self.body_scale)
-    
-        # tarsus markers
-        for i, leg in enumerate(self.walker.legs):
-            colour = '#e8000b' if leg.ground_contact else '#00e64d'
-            tarsus_world = leg.frame.to_world(leg.tarsus_position)
+        self.walker.body_frame.set_transform(
+            self.walker.body_position,
+            angle=self.walker.body_orientation,
+            scale=self.body_scale
+        )
+
+        # all leg geometry in one loop
+        geometries = self.walker.get_world_geometry()
+        for i, geom in enumerate(geometries):
+            colour = '#e8000b' if geom.ground_contact else '#00e64d'
             self.tarsus_markers[i].set_markerfacecolor(colour)
-            self.tarsus_markers[i].set_data([tarsus_world[0]], [tarsus_world[1]])
-    
-        # leg segments
-        for i, leg in enumerate(self.walker.legs):
-             origin_world = leg.frame.to_world(np.zeros(3))
-             tarsus_world = leg.frame.to_world(leg.tarsus_position)
-             self.leg_segments[i].set_data(
-                 [origin_world[0], tarsus_world[0]],
-                 [origin_world[1], tarsus_world[1]]
-             )
-             
-        for i, leg in enumerate(self.walker.legs):
-            colour = '#e8000b' if leg.ground_contact else '#00e64d'
-            tarsus_world = leg.frame.to_world(leg.tarsus_position)
-            if i == 0:
-                print("leg world transform: \n", leg.frame.world_transform())
-                print("body frame local:\n", self.walker.body_frame.local_transform)
-                print("body frame parent:", self.walker.body_frame.parent)
-            self.tarsus_markers[i].set_markerfacecolor(colour)
-            self.tarsus_markers[i].set_data([tarsus_world[0]], [tarsus_world[1]])
-    
+            self.tarsus_markers[i].set_data([geom.tarsus[0]], [geom.tarsus[1]])
+            self.leg_segments[i].set_data(
+                [geom.origin[0], geom.tarsus[0]],
+                [geom.origin[1], geom.tarsus[1]]
+            )
+            self.platonic_aep_markers[i].set_data([geom.anterior_extreme[0]], [geom.anterior_extreme[1]])
+            self.platonic_pep_markers[i].set_data([geom.posterior_extreme[0]], [geom.posterior_extreme[1]])
+            self.noisy_aep_markers[i].set_data([geom.noisy_anterior_extreme[0]], [geom.noisy_anterior_extreme[1]])
+            self.noisy_pep_markers[i].set_data([geom.noisy_posterior_extreme[0]], [geom.noisy_posterior_extreme[1]])
+            self.workspace_circles[i].center = (geom.workspace_centre[0], geom.workspace_centre[1])
+            self.workspace_circles[i].radius = geom.workspace_radius
+
         # body outline
         outline_local = np.column_stack([
             self.insect_body.normalised_outline,
@@ -195,33 +192,13 @@ class HexSimulation:
             self.walker.body_frame.to_world(pt) for pt in outline_local
         ])
         self.body_line.set_data(outline_world[:, 0], outline_world[:, 1])
-        
-        # AEP and PEP markers
-        for i, leg in enumerate(self.walker.legs):
-            aep_world = leg.frame.to_world(leg.anterior_extreme_position)
-            pep_world = leg.frame.to_world(leg.posterior_extreme_position)
-            self.platonic_aep_markers[i].set_data([aep_world[0]], [aep_world[1]])
-            self.platonic_pep_markers[i].set_data([pep_world[0]], [pep_world[1]])
-    
-        # noisy AEP and PEP markers
-        for i, leg in enumerate(self.walker.legs):
-            noisy_aep_world = leg.frame.to_world(leg.noisy_anterior_extreme_position)
-            noisy_pep_world = leg.frame.to_world(leg.noisy_posterior_extreme_position)
-            self.noisy_aep_markers[i].set_data([noisy_aep_world[0]], [noisy_aep_world[1]])
-            self.noisy_pep_markers[i].set_data([noisy_pep_world[0]], [noisy_pep_world[1]])
-    
-        # workspace circles
-        for i, leg in enumerate(self.walker.legs):
-            centre_world = leg.frame.to_world(leg.workspace_centre)
-            self.workspace_circles[i].center = (centre_world[0], centre_world[1])
-            self.workspace_circles[i].radius = leg.workspace_radius * self.body_scale
-    
+
         # stability polygon
         grounded = self.walker.get_support_polygon_grounded_positions()
         if len(grounded) >= 3:
             hull = ConvexHull(grounded[:, :2])
             self.stability_polygon.set_xy(grounded[hull.vertices, :2])
-    
+
         # body coordinate axes
         angle = self.walker.body_orientation
         axis_length = 0.5 * self.body_scale
@@ -233,12 +210,12 @@ class HexSimulation:
             [body_pos[0], body_pos[0] + axis_length * np.cos(angle + np.pi / 2)],
             [body_pos[1], body_pos[1] + axis_length * np.sin(angle + np.pi / 2)]
         )
-    
+
         # trajectory
         self.trajectory_x.append(body_pos[0])
         self.trajectory_y.append(body_pos[1])
         self.trajectory_line.set_data(self.trajectory_x, self.trajectory_y)
-    
+
         return (self.tarsus_markers + self.leg_segments +
                 self.platonic_aep_markers + self.platonic_pep_markers +
                 self.noisy_aep_markers + self.noisy_pep_markers +

@@ -12,6 +12,7 @@ from scipy.spatial import ConvexHull
 from hexwalker.body.insect_body import InsectBody
 from hexwalker.core.hex_walker_leg import HexWalkerLeg
 from hexwalker.core.coordinate_mapper import CoordinateMapper
+from hexwalker.core.hex_walker_leg import HexWalkerLeg, LegGeometry
 
 class HexWalker: 
     def __init__(
@@ -122,6 +123,26 @@ class HexWalker:
             for leg in self.legs
             if leg.ground_contact
         ])
+
+    def get_world_geometry(self) -> list:
+        """Return all leg geometry converted to world coordinates."""
+        result = []
+        for leg in self.legs:
+            g = leg.get_geometry()
+            result.append(LegGeometry(
+                leg_id=g.leg_id,
+                leg_label=g.leg_label,
+                ground_contact=g.ground_contact,
+                tarsus=leg.frame.to_world(g.tarsus),
+                anterior_extreme=leg.frame.to_world(g.anterior_extreme),
+                posterior_extreme=leg.frame.to_world(g.posterior_extreme),
+                noisy_anterior_extreme=leg.frame.to_world(g.noisy_anterior_extreme),
+                noisy_posterior_extreme=leg.frame.to_world(g.noisy_posterior_extreme),
+                workspace_centre=leg.frame.to_world(g.workspace_centre),
+                workspace_radius=g.workspace_radius * self.body_scale,
+                origin=leg.frame.to_world(np.zeros(3)),
+            ))
+        return result
  
     def set_noise_level(
             self,
