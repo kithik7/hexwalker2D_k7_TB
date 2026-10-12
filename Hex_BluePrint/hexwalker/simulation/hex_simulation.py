@@ -74,7 +74,7 @@ class HexSimulation:
     
         # leg segments from origin to tarsus
         self.leg_segments = [
-            self.ax.plot([], [], '-', color='#888888', linewidth=1.5)[0] 
+            self.ax.plot([], [], '-', color='#333333', linewidth=1.5)[0] 
             for _ in range(6)
         ]
 
@@ -168,13 +168,14 @@ class HexSimulation:
             self.tarsus_markers[i].set_data([tarsus_world[0]], [tarsus_world[1]])
     
         # leg segments
-        # for i, leg in enumerate(self.walker.legs):
-        #     origin_world = leg.frame.to_world(np.zeros(3))
-        #     tarsus_world = leg.frame.to_world(leg.tarsus_position)
-        #     self.leg_segments[i].set_data(
-        #         [origin_world[0], tarsus_world[0]],
-        #         [origin_world[1], tarsus_world[1]]
-        #     )
+        for i, leg in enumerate(self.walker.legs):
+             origin_world = leg.frame.to_world(np.zeros(3))
+             tarsus_world = leg.frame.to_world(leg.tarsus_position)
+             self.leg_segments[i].set_data(
+                 [origin_world[0], tarsus_world[0]],
+                 [origin_world[1], tarsus_world[1]]
+             )
+             
         for i, leg in enumerate(self.walker.legs):
             colour = '#e8000b' if leg.ground_contact else '#00e64d'
             tarsus_world = leg.frame.to_world(leg.tarsus_position)
