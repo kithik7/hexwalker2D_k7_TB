@@ -21,6 +21,8 @@ class LegGeometry:
     posterior_extreme: np.ndarray
     noisy_anterior_extreme: np.ndarray
     noisy_posterior_extreme: np.ndarray
+    landing_position_history: list
+    liftoff_position_history: list
     workspace_centre: np.ndarray
     workspace_radius: float
     origin: np.ndarray
@@ -70,6 +72,8 @@ class HexWalkerLeg:
         self.stride_orientation = 0.0
         self.noise_level = 0.0
         self.frame = CoordinateMapper(parent=None)
+        self.landing_position_history  = []
+        self.liftoff_position_history = []
 
     def _initialise_tarsus_position(self) -> None: 
         self.tarsus_position = self.workspace_centre.copy()
@@ -119,24 +123,60 @@ class HexWalkerLeg:
         if self.distance_to_anterior_extreme == 0: 
             return np.zeros(3)
         return self.vector_to_anterior_extreme / self.distance_to_anterior_extreme
+
+    @property
+    def vector_to_noisy_anterior_extreme(self) -> np.ndarray:
+        return self.noisy_anterior_extreme_position - self.tarsus_position
+
+    @property
+    def normalised_vector_to_noisy_anterior_extreme(self) -> np.ndarray:
+        dist = np.linalg.norm(self.vector_to_noisy_anterior_extreme)
+        if dist == 0:
+            return np.zeros(3)
+        return self.vector_to_noisy_anterior_extreme / dist
+
+    @property
+    def distance_to_noisy_anterior_extreme(self) -> float:
+        return np.linalg.norm(self.vector_to_noisy_anterior_extreme)
+
+    @property
+    def vector_to_noisy_posterior_extreme(self) -> np.ndarray:
+        return self.noisy_posterior_extreme_position - self.tarsus_position
+
+    @property
+    def normalised_vector_to_noisy_posterior_extreme(self) -> np.ndarray:
+        dist = np.linalg.norm(self.vector_to_noisy_posterior_extreme)
+        if dist == 0:
+            return np.zeros(3)
+        return self.vector_to_noisy_posterior_extreme / dist
+
+    @property
+    def distance_to_noisy_posterior_extreme(self) -> float:
+        return np.linalg.norm(self.vector_to_noisy_posterior_extreme)
     
     def update(self, dt: float) -> None: 
         self._check_state_transition(dt)
         self._move_tarsus(dt)
 
     def _check_state_transition(self, dt: float) -> None:
-        if self.ground_contact and self.distance_to_posterior_extreme <= self.stance_step_size:
+        if self.ground_contact and self.distance_to_noisy_posterior_extreme <= self.stance_step_size:
             self.ground_contact = False
+            self.liftoff_position_history.append(
+                (self.tarsus_position - self.workspace_centre).copy()
+            )
             self._draw_noisy_anterior_extreme_position()
-        elif not self.ground_contact and self.distance_to_anterior_extreme <= self.swing_step_size:
+        elif not self.ground_contact and self.distance_to_noisy_anterior_extreme <= self.swing_step_size:
             self.ground_contact = True
+            self.landing_position_history.append(
+                (self.tarsus_position - self.workspace_centre).copy()
+            )
             self._draw_noisy_posterior_extreme_position()
             
     def _move_tarsus(self, dt: float) -> None:
         if self.ground_contact:
-            self.tarsus_position += self.normalised_vector_to_posterior_extreme * self.stance_step_size * dt
+            self.tarsus_position += self.normalised_vector_to_noisy_posterior_extreme * self.stance_step_size * dt
         else:
-            self.tarsus_position += self.normalised_vector_to_anterior_extreme * self.swing_step_size * dt   
+            self.tarsus_position += self.normalised_vector_to_noisy_anterior_extreme * self.swing_step_size * dt   
 
     def _draw_noisy_anterior_extreme_position(self) -> None:
         if self.noise_level == 0.0:
@@ -151,7 +191,7 @@ class HexWalkerLeg:
 
     def _draw_noisy_posterior_extreme_position(self) -> None: 
         if self.noise_level == 0.0:
-                self.noisy_anterior_extreme_position = self.anterior_extreme_position.copy()
+                self.noisy_posterior_extreme_position = self.posterior_extreme_position.copy()
                 return
         noise = np.random.multivariate_normal(
             mean=[0.0, 0.0],
@@ -171,7 +211,10 @@ class HexWalkerLeg:
             posterior_extreme=self.posterior_extreme_position.copy(),
             noisy_anterior_extreme=self.noisy_anterior_extreme_position.copy(),
             noisy_posterior_extreme=self.noisy_posterior_extreme_position.copy(),
+            landing_position_history=self.landing_position_history,
+            liftoff_position_history=self.liftoff_position_history,
             workspace_centre=self.workspace_centre.copy(),
             workspace_radius=self.workspace_radius,
             origin=self.origin.copy(),
         )
+    

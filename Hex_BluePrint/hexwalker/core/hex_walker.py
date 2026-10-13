@@ -99,15 +99,76 @@ class HexWalker:
         self.body_frame.set_transform(self.body_position, angle=self.body_orientation, scale=self.body_scale)
 
     def _calculate_displacement(self) -> tuple:
-        displacement = np.zeros(3)
-        grounded_legs_count = 0
-        for leg in self.legs: 
-            if leg.ground_contact:
-                displacement += -leg.normalised_vector_to_posterior_extreme * leg.stance_step_size * self.dt
-                grounded_legs_count += 1
-        if grounded_legs_count > 0:
-            displacement /= grounded_legs_count
-        return displacement[:2], 0.0
+        """Calculate body displacement using grounded leg pairs, matching MATLAB approach."""
+        grounded_legs = [leg for leg in self.legs if leg.ground_contact]
+    
+        if len(grounded_legs) < 2:
+            return np.zeros(2), 0.0
+    
+        all_translations = []
+        all_rotations = []
+    
+        pairs = [(grounded_legs[i], grounded_legs[j]) 
+                for i in range(len(grounded_legs)) 
+                for j in range(i + 1, len(grounded_legs))]
+    
+        for leg_a, leg_b in pairs:
+        
+            # new positions of origins after one stance step
+            p1 = leg_a.origin + leg_a.normalised_vector_to_noisy_posterior_extreme * -1 * leg_a.stance_step_size * self.dt
+            p2 = leg_b.origin + leg_b.normalised_vector_to_noisy_posterior_extreme * -1 * leg_b.stance_step_size * self.dt
+        
+            # unit vector between origins before and after
+            v_original = leg_a.origin - leg_b.origin
+            norm_orig = np.linalg.norm(v_original)
+            if norm_orig < 1e-10:
+                continue
+            v_original = v_original / norm_orig
+        
+            v_new = p1 - p2
+            norm_new = np.linalg.norm(v_new)
+            if norm_new < 1e-10:
+                continue
+            v_new = v_new / norm_new
+        
+            dp = np.clip(np.dot(v_original, v_new), -1.0, 1.0)
+            angle = np.arccos(dp)
+        
+            cross = np.cross(v_original, v_new)
+            if cross[2] < 0:
+                angle = -angle
+        
+            # rotation matrix
+            c = np.cos(angle)
+            s = np.sin(angle)
+            R = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
+        
+            # where COM ends up according to each leg in pair
+            com = np.append(self.body_position[:2], 0.0)
+        
+            t1 = (R @ (com - leg_a.origin)) + leg_a.origin + leg_a.normalised_vector_to_noisy_posterior_extreme * -1 * leg_a.stance_step_size * self.dt
+            t2 = (R @ (com - leg_b.origin)) + leg_b.origin + leg_b.normalised_vector_to_noisy_posterior_extreme * -1 * leg_b.stance_step_size * self.dt
+        
+            all_translations.append(t1[:2])
+            all_translations.append(t2[:2])
+            all_rotations.append(angle)
+            all_rotations.append(angle)
+    
+        if not all_translations:
+            return np.zeros(2), 0.0
+    
+        mean_position = np.mean(all_translations, axis=0)
+        mean_rotation = np.mean(all_rotations)
+    
+        # displacement is difference between new COM position and current
+        displacement = mean_position - self.body_position[:2]
+        c = np.cos(self.body_orientation)
+        s = np.sin(self.body_orientation)
+        world_x = c * displacement[0] - s * displacement[1]
+        world_y = s * displacement[0] + c * displacement[1]
+        print(f"mean_rotation: {mean_rotation:.6f}, displacement: {displacement}")
+        return np.array([world_x, world_y]), mean_rotation
+     
 
     def get_tarsus_positions(self) -> np.ndarray:
         """Return tarsus positions in world coordinates via kinematic chain."""
@@ -129,6 +190,10 @@ class HexWalker:
         result = []
         for leg in self.legs:
             g = leg.get_geometry()
+            # print("noisy_anterior local:", g.noisy_anterior_extreme)
+            # print("noisy_anterior world:", leg.frame.to_world(g.noisy_anterior_extreme))
+            # print("anterior local:", g.anterior_extreme)
+            # print("anterior world:", leg.frame.to_world(g.anterior_extreme))
             result.append(LegGeometry(
                 leg_id=g.leg_id,
                 leg_label=g.leg_label,
@@ -138,6 +203,8 @@ class HexWalker:
                 posterior_extreme=leg.frame.to_world(g.posterior_extreme),
                 noisy_anterior_extreme=leg.frame.to_world(g.noisy_anterior_extreme),
                 noisy_posterior_extreme=leg.frame.to_world(g.noisy_posterior_extreme),
+                landing_position_history=list(g.landing_position_history),
+                liftoff_position_history=list(g.liftoff_position_history),
                 workspace_centre=leg.frame.to_world(g.workspace_centre),
                 workspace_radius=g.workspace_radius * self.body_scale,
                 origin=leg.frame.to_world(np.zeros(3)),
@@ -157,12 +224,9 @@ class HexWalker:
     ) -> None: 
         """Set stride orientation for each leg so walker can start curve walking"""
         CURVE_FACTORS = [1, 0, -1, 1, 0, -1]
-        if curve_radius < 0.2:
-            base_angle = 0.0
-        else:
-            base_angle = 1.0 / curve_radius 
+        
         for i, leg in enumerate(self.legs):
-            leg.stride_orientation = CURVE_FACTORS[i] * base_angle
+            leg.stride_orientation = CURVE_FACTORS[i] * curve_radius
             leg._calculate_stride_endpoints() #to recalculate AEP PEP based on new orientation
 
 
