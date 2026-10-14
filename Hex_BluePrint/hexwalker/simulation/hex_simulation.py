@@ -52,7 +52,7 @@ class HexSimulation:
         self.ax.set_facecolor('#f5f5f0')
         self.ax.grid(True, alpha= 0.2)
 
-        plt.subplots_adjust(bottom=0.25) #scale layout to fit parameter slides
+        plt.subplots_adjust(bottom=0.28) #scale layout to fit parameter slides
 
         #store x and y trajectories 
         self.trajectory_x = []
@@ -81,7 +81,7 @@ class HexSimulation:
         #body outline 
         self.body_line, = self.ax.plot([], [], '-', color='#888888', linewidth=1.5)
 
-        #platonic anterior extreme position (aep) markets as red filled circles
+        #platonic anterior extreme position (aep) markets as red open circles
         self.platonic_aep_markers = [
             self.ax.plot([], [], 'o', markerfacecolor='white' ,markeredgecolor='#e8000b', markersize=8)[0]
             for _ in range(6)
@@ -90,11 +90,11 @@ class HexSimulation:
         #platonic posterior extreme position (pep) markers as empty squares 
         self.platonic_pep_markers = [
             self.ax.plot([], [], 's', markerfacecolor='white',
-                         markeredgecolor='#e8000b', markersize=6)[0]
+                         markeredgecolor='black', markersize=6)[0]
             for _ in range(6)
         ]
 
-        #noisy AEP markers, smaller open red circles
+        #noisy AEP markers, smaller filled red circles
         self.noisy_aep_markers = [
             self.ax.plot([], [], 'o', markerfacecolor='none',
                          markeredgecolor='#e8000b', markersize=4)[0]
@@ -119,12 +119,12 @@ class HexSimulation:
         ]
         self.aep_ellipses = [
             Ellipse((0, 0), width=0.1, height=0.1, angle=0,
-                fill=False, edgecolor='#e8000b', linewidth=1.5, alpha=0.8)
+                fill=False, edgecolor='#e8000b', linewidth=1.5, alpha=0.8, visible=False)
             for _ in range(6)
         ]
         self.pep_ellipses = [
         Ellipse((0, 0), width=0.1, height=0.1, angle=0,
-            fill=False, edgecolor='#3B8BD4', linewidth=1.5, alpha=0.8)
+            fill=False, edgecolor='#3B8BD4', linewidth=1.5, alpha=0.8, visible=False)
         for _ in range(6)
         ]
         for e in self.aep_ellipses + self.pep_ellipses:
@@ -168,17 +168,16 @@ class HexSimulation:
         self.zoom_slider = Slider(slider_ax_zoom, 'Zoom', 0.5, 5.0, valinit=1.0)
         self.zoom_slider.on_changed(self._zoom_slider_callback) 
 
-        button_ax = plt.axes([0.85, 0.15, 0.1, 0.04])
-        self.ellipse_toggle = Button(button_ax, 'Ellipses: ON')
+        button_ax = plt.axes([0.82, 0.20, 0.13, 0.04])
+        self.ellipse_toggle = Button(button_ax, 'Ellipses: OFF')
         self.ellipse_toggle.on_clicked(self._toggle_ellipses)
-        self.show_ellipses = True
+        self.show_ellipses = False
 
     def _noise_slider_callback(self, val: float) -> None:
         """Update noise level on all legs when slider changes."""
         self.walker.set_noise_level(val)
 
     def _curve_slider_callback(self, val: float) -> None:
-        print('curve slider called with:', val)
         """Update curve radius when slider changes."""
         self.walker.set_curve_radius(val)
 
@@ -192,7 +191,7 @@ class HexSimulation:
     def _toggle_ellipses(self, event) -> None:
         """Toggle aep/pep distribution visibility"""
         self.show_ellipses = not self.show_ellipses 
-        label = 'Ellipses: On' if self.show_ellipses else 'Ellipses:off'
+        label = 'Ellipses: ON' if self.show_ellipses else 'Ellipses: OFF'
         self.ellipse_toggle.label.set_text(label)
         for e in self.aep_ellipses + self.pep_ellipses:
             e.set_visible(self.show_ellipses)   
@@ -202,6 +201,8 @@ class HexSimulation:
 
         self.walker.update(self.dt)
         body_pos = self.walker.body_position
+
+        pre_toroid_wrapping_position = self.walker.body_position[:2].copy()
 
         # toroidal wrapping
         half = self.world_size / 2
@@ -225,8 +226,12 @@ class HexSimulation:
             )
             self.platonic_aep_markers[i].set_data([geom.anterior_extreme[0]], [geom.anterior_extreme[1]])
             self.platonic_pep_markers[i].set_data([geom.posterior_extreme[0]], [geom.posterior_extreme[1]])
-            self.noisy_aep_markers[i].set_data([geom.noisy_anterior_extreme[0]], [geom.noisy_anterior_extreme[1]])
-            self.noisy_pep_markers[i].set_data([geom.noisy_posterior_extreme[0]], [geom.noisy_posterior_extreme[1]])
+            if self.walker.legs[0].noise_level > 0:
+                self.noisy_aep_markers[i].set_data([geom.noisy_anterior_extreme[0]], [geom.noisy_anterior_extreme[1]])
+                self.noisy_pep_markers[i].set_data([geom.noisy_posterior_extreme[0]], [geom.noisy_posterior_extreme[1]])
+            else:
+                self.noisy_aep_markers[i].set_data([], [])
+                self.noisy_pep_markers[i].set_data([], [])
             
             # fit and draw ellipses once enough data exists
             if len(geom.landing_position_history) >= 2:
@@ -251,7 +256,7 @@ class HexSimulation:
                     self.aep_ellipses[i].set_height(height)
                     self.aep_ellipses[i].angle = angle
 
-            if self.show_ellipses and len(geom.liftoff_position_history) >= 5:
+            if len(geom.liftoff_position_history) >= 2:
                 pep_arr = np.array([
                     self.walker.legs[i].frame.to_world(
                         np.append(p[:2] + self.walker.legs[i].workspace_centre[:2], 0.0))[:2]
@@ -304,6 +309,14 @@ class HexSimulation:
         )
 
         # trajectory
+        half = self.world_size / 2
+        wrap_occured = (
+            abs(self.walker.body_position[0] - pre_toroid_wrapping_position[0]) > half or 
+            abs(self.walker.body_position[1] - pre_toroid_wrapping_position[1]) > half
+        )
+        if wrap_occured: 
+            self.trajectory_x.append(np.nan)
+            self.trajectory_y.append(np.nan)
         self.trajectory_x.append(body_pos[0])
         self.trajectory_y.append(body_pos[1])
         self.trajectory_line.set_data(self.trajectory_x, self.trajectory_y)
@@ -318,12 +331,13 @@ class HexSimulation:
     def run(self) -> None:
         """Start playing all of the above"""
         self.anim = FuncAnimation(
-            self.fig, self.animate, frames=2000, interval=20, blit=False
+            self.fig, self.animate, interval=100, blit=False
         )
         plt.show()
+        #interval = millisec between frames
 
 if __name__ == "__main__":
-    sim = HexSimulation(world_size=40,dt=0.05,body_scale=9.0)
+    sim = HexSimulation(world_size=40,dt=0.02,body_scale=9.0)
     sim.run()
         
 

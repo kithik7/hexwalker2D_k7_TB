@@ -65,7 +65,7 @@ class HexWalkerLeg:
         self.workspace_radius = workspace_radius
 
     def _set_default_parameters(self) -> None: 
-        self.stride_amplitude = 0.15
+        self.stride_amplitude = 0.3
         self.stance_step_size = 0.02 
         self.swing_step_size = 0.03 
         self.ground_contact = True 
@@ -174,9 +174,9 @@ class HexWalkerLeg:
             
     def _move_tarsus(self, dt: float) -> None:
         if self.ground_contact:
-            self.tarsus_position += self.normalised_vector_to_noisy_posterior_extreme * self.stance_step_size * dt
+            self.tarsus_position += self.normalised_vector_to_noisy_posterior_extreme * self.stance_step_size 
         else:
-            self.tarsus_position += self.normalised_vector_to_noisy_anterior_extreme * self.swing_step_size * dt   
+            self.tarsus_position += self.normalised_vector_to_noisy_anterior_extreme * self.swing_step_size    
 
     def _draw_noisy_anterior_extreme_position(self) -> None:
         if self.noise_level == 0.0:

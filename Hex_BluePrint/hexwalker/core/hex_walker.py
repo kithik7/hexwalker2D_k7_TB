@@ -60,7 +60,7 @@ class HexWalker:
                 leg_label=leg_labels[i],
                 origin=origin,
                 workspace_centre=workspace_centres[i],
-                workspace_radius=0.15
+                workspace_radius=0.2
             )
             self.legs.append(leg)
             leg.frame.parent = self.body_frame
@@ -115,8 +115,8 @@ class HexWalker:
         for leg_a, leg_b in pairs:
         
             # new positions of origins after one stance step
-            p1 = leg_a.origin + leg_a.normalised_vector_to_noisy_posterior_extreme * -1 * leg_a.stance_step_size * self.dt
-            p2 = leg_b.origin + leg_b.normalised_vector_to_noisy_posterior_extreme * -1 * leg_b.stance_step_size * self.dt
+            p1 = leg_a.origin + leg_a.normalised_vector_to_noisy_posterior_extreme * -1 * leg_a.stance_step_size 
+            p2 = leg_b.origin + leg_b.normalised_vector_to_noisy_posterior_extreme * -1 * leg_b.stance_step_size 
         
             # unit vector between origins before and after
             v_original = leg_a.origin - leg_b.origin
@@ -144,10 +144,10 @@ class HexWalker:
             R = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
         
             # where COM ends up according to each leg in pair
-            com = np.append(self.body_position[:2], 0.0)
+            com = np.zeros(3)
         
-            t1 = (R @ (com - leg_a.origin)) + leg_a.origin + leg_a.normalised_vector_to_noisy_posterior_extreme * -1 * leg_a.stance_step_size * self.dt
-            t2 = (R @ (com - leg_b.origin)) + leg_b.origin + leg_b.normalised_vector_to_noisy_posterior_extreme * -1 * leg_b.stance_step_size * self.dt
+            t1 = (R @ (com - leg_a.origin)) + leg_a.origin + leg_a.normalised_vector_to_noisy_posterior_extreme * -1 * leg_a.stance_step_size 
+            t2 = (R @ (com - leg_b.origin)) + leg_b.origin + leg_b.normalised_vector_to_noisy_posterior_extreme * -1 * leg_b.stance_step_size 
         
             all_translations.append(t1[:2])
             all_translations.append(t2[:2])
@@ -161,12 +161,12 @@ class HexWalker:
         mean_rotation = np.mean(all_rotations)
     
         # displacement is difference between new COM position and current
-        displacement = mean_position - self.body_position[:2]
+        displacement = mean_position * self.body_scale
         c = np.cos(self.body_orientation)
         s = np.sin(self.body_orientation)
         world_x = c * displacement[0] - s * displacement[1]
         world_y = s * displacement[0] + c * displacement[1]
-        print(f"mean_rotation: {mean_rotation:.6f}, displacement: {displacement}")
+        print(f"mean_position: {mean_position}, displacement: {np.array([world_x, world_y])}")
         return np.array([world_x, world_y]), mean_rotation
      
 
