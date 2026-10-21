@@ -54,11 +54,21 @@ class HexWalker:
         #ipsilateral anterior neighbour connections 
         self.anterior_neighbours = {
             0: None, #L1 has no anterior neighbour 
-            1: 0, #L2 -> L3
+            1: 0, #L2 -> L1
             2: 1, #L3 -> L2
             3: None, #R1 has no anterior neighbour
             4: 3, #R2 -> R1
-            5: None, # R3 -> R2 
+            5: 4, # R3 -> R2 
+        }
+
+        #weak minimal rule 1 contraateral coupling 
+        self.contralateral_neighbours = {
+            0: 3,
+            1: 4,
+            2: 5,
+            3: 0,
+            4: 1,
+            5: 2,
         }
 
     def _attach_legs(self) -> None: 
@@ -83,7 +93,8 @@ class HexWalker:
             self.legs.append(leg)
             leg.frame.parent = self.body_frame
             leg.frame.set_transform(np.append(attachment_points[i], 0.0), scale=1.0)
-    
+        self.ipsilateral_rule3_strength = 0.3
+        self.contralateral_coupling_strength = 0.3
     def _calculate_workspace_centres(
             self, 
             attachment_points: np.ndarray, 
@@ -109,20 +120,53 @@ class HexWalker:
     ) -> None:
         """Update body position and orientation from displacement calculated from grounded legs."""
         translation, rotation = self._calculate_displacement()
-
+        print([leg.ground_contact for leg in self.legs])
         for leg_index, leg in enumerate(self.legs): 
             posterior_neighbour_index = self.posterior_neighbours[leg_index]
             anterior_neighbour_index = self.anterior_neighbours[leg_index]
+            contralateral_index = self.contralateral_neighbours[leg_index]
+
             if posterior_neighbour_index is not None: 
                 posterior_in_swing = not self.legs[posterior_neighbour_index].ground_contact 
             else: 
                 posterior_in_swing = False 
 
+            contralateral_leg = self.legs[contralateral_index]
+            if not contralateral_leg.ground_contact:
+                swing_direction = (contralateral_leg.anterior_extreme_position - contralateral_leg.posterior_extreme_position)
+                swing_direction = swing_direction / np.linalg.norm(swing_direction)
+                tarsus_displacement = contralateral_leg.tarsus_position - contralateral_leg.posterior_extreme_position
+                contralateral_swing_progress = float(np.clip(
+                    np.dot(tarsus_displacement, swing_direction) / contralateral_leg.stride_amplitude,
+                    0.0, 1.0
+                ))
+            else:
+                contralateral_swing_progress = 0.0
+           
+            #rule 3 runs in all ticks 
             # Rule 2 excitatory pulse boolean tag on groundcontact bool
-            was_in_swing = not leg.ground_contact
-            leg.update(dt, posterior_in_swing=posterior_in_swing)
-            just_landed = was_in_swing and leg.ground_contact 
 
+            rule3_signal = 0.0
+            if anterior_neighbour_index is not None:
+                anterior_leg = self.legs[anterior_neighbour_index]
+                if anterior_leg.ground_contact: 
+                    stance_direction = anterior_leg.posterior_extreme_position - anterior_leg.anterior_extreme_position
+                    stance_direction = stance_direction / np.linalg.norm(stance_direction)
+                    tarsus_displacement = anterior_leg.tarsus_position - anterior_leg.anterior_extreme_position
+                    rule3_signal = float(np.clip(
+                        np.dot(tarsus_displacement, stance_direction) / anterior_leg.stride_amplitude,
+                        0.0, 1.0
+                    ))
+
+            was_in_swing = not leg.ground_contact
+            leg.update(
+                dt, 
+                posterior_in_swing=posterior_in_swing, 
+                contralateral_swing_progress=contralateral_swing_progress, 
+                rule3_signal=rule3_signal,
+                contralateral_coupling_strength=self.contralateral_coupling_strength,
+                rule3_coupling_strength=self.ipsilateral_rule3_strength)
+            just_landed = was_in_swing and leg.ground_contact 
             if just_landed and anterior_neighbour_index is not None: 
                 self.legs[anterior_neighbour_index].received_excitation = True
         self.body_position[0] += translation[0]
@@ -131,7 +175,7 @@ class HexWalker:
         self.body_frame.set_transform(self.body_position, angle=self.body_orientation, scale=self.body_scale)
 
     def _calculate_displacement(self) -> tuple:
-        """Calculate body displacement using grounded leg pairs, matching MATLAB approach."""
+        """Calculate body displacement using grounded leg pair."""
         grounded_legs = [leg for leg in self.legs if leg.ground_contact]
     
         if len(grounded_legs) < 2:
@@ -198,7 +242,7 @@ class HexWalker:
         s = np.sin(self.body_orientation)
         world_x = c * displacement[0] - s * displacement[1]
         world_y = s * displacement[0] + c * displacement[1]
-        print(f"mean_position: {mean_position}, displacement: {np.array([world_x, world_y])}")
+        #print(f"mean_position: {mean_position}, displacement: {np.array([world_x, world_y])}")
         return np.array([world_x, world_y]), mean_rotation
      
 

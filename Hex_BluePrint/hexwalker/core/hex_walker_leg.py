@@ -70,6 +70,8 @@ class HexWalkerLeg:
         self.swing_step_size = 0.03 
         self.ground_contact = True 
         self.received_excitation =False #Cruse Rule 2 
+        self.ticks_in_swing = 0 
+        self.min_swing_duration = 0 #in ticks 
         self.stride_orientation = 0.0
         self.noise_level = 0.0
         self.frame = CoordinateMapper(parent=None)
@@ -155,20 +157,44 @@ class HexWalkerLeg:
     def distance_to_noisy_posterior_extreme(self) -> float:
         return np.linalg.norm(self.vector_to_noisy_posterior_extreme)
     
-    def update(self, dt: float, posterior_in_swing: bool = False) -> None: 
-        self._check_state_transition(posterior_in_swing)
+    def update(
+            self, 
+            dt: float, 
+            posterior_in_swing: bool = False, 
+            contralateral_swing_progress: float = 0.0, 
+            rule3_signal: float = 0.0, 
+            contralateral_coupling_strength: float=0.3, 
+            rule3_coupling_strength: float = 0.3,
+    ) -> None: 
+        self._check_state_transition(
+            posterior_in_swing, 
+            contralateral_swing_progress, 
+            rule3_signal,
+            contralateral_coupling_strength,
+            rule3_coupling_strength)
         self._move_tarsus(dt)
 
-    def _check_state_transition(self, dt: float, posterior_in_swing: bool=False) -> None:
-        if self.ground_contact and self.distance_to_noisy_posterior_extreme <= self.stance_step_size and not posterior_in_swing:
+    def _check_state_transition(
+            self, 
+            dt: float, 
+            posterior_in_swing: bool=False, 
+            contralateral_swing_progress: float = 0.0, 
+            rule3_signal: float = 0.0,
+            contralateral_coupling_strength: float = 0.3,
+            rule3_coupling_strength: float = 0.3,
+    ) -> None:
+        contralateral_inhibition = contralateral_swing_progress * contralateral_coupling_strength
+        effective_threshold = self.stance_step_size * (1.0 - contralateral_inhibition) + rule3_signal * self.stance_step_size * rule3_coupling_strength 
+        if self.ground_contact and self.distance_to_noisy_posterior_extreme <= effective_threshold and not posterior_in_swing:
             self.ground_contact = False
             self.liftoff_position_history.append(
                 (self.tarsus_position - self.workspace_centre).copy()
             )
             self._draw_noisy_anterior_extreme_position()
+            #rule2
         elif not self.ground_contact and (
             self.distance_to_noisy_anterior_extreme <= self.swing_step_size
-            or (self.received_excitation and self.distance_to_noisy_anterior_extreme <= self.swing_step_size * 2)
+            or (self.received_excitation and self.distance_to_noisy_anterior_extreme <= self.swing_step_size * 1.5) #1.5swingsteps guard
         ):
             self.ground_contact = True
             self.received_excitation = False 
@@ -179,8 +205,10 @@ class HexWalkerLeg:
             
     def _move_tarsus(self, dt: float) -> None:
         if self.ground_contact:
+            self.ticks_in_swing = 0 
             self.tarsus_position += self.normalised_vector_to_noisy_posterior_extreme * self.stance_step_size 
         else:
+            self.ticks_in_swing += 1
             self.tarsus_position += self.normalised_vector_to_noisy_anterior_extreme * self.swing_step_size    
 
     def _draw_noisy_anterior_extreme_position(self) -> None:
