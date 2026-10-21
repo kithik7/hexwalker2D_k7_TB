@@ -161,7 +161,7 @@ class HexSimulation:
         self.noise_slider.on_changed(self._noise_slider_callback)
 
         slider_ax_curve = plt.axes([0.2, 0.05, 0.6, 0.03])
-        self.curve_slider = Slider(slider_ax_curve, 'Curve radius', 0.0, 5.0, valinit=0.0)
+        self.curve_slider = Slider(slider_ax_curve, 'Curve radius', 0.0, 0.3, valinit=0.0)
         self.curve_slider.on_changed(self._curve_slider_callback)
 
         slider_ax_zoom = plt.axes([0.2, 0.15, 0.6, 0.03])
@@ -213,7 +213,10 @@ class HexSimulation:
             angle=self.walker.body_orientation,
             scale=self.body_scale
         )
-
+        half_view = (self.world_size / 2) / self.zoom_slider.val
+        self.ax.set_xlim(self.walker.body_position[0] - half_view, self.walker.body_position[0] + half_view)
+        self.ax.set_ylim(self.walker.body_position[1] - half_view, self.walker.body_position[1] + half_view)
+        
         # all leg geometry in the same loop
         geometries = self.walker.get_world_geometry()
         for i, geom in enumerate(geometries):

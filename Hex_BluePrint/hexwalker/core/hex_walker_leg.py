@@ -154,12 +154,12 @@ class HexWalkerLeg:
     def distance_to_noisy_posterior_extreme(self) -> float:
         return np.linalg.norm(self.vector_to_noisy_posterior_extreme)
     
-    def update(self, dt: float) -> None: 
-        self._check_state_transition(dt)
+    def update(self, dt: float, posterior_in_swing: bool = False) -> None: 
+        self._check_state_transition(posterior_in_swing)
         self._move_tarsus(dt)
 
-    def _check_state_transition(self, dt: float) -> None:
-        if self.ground_contact and self.distance_to_noisy_posterior_extreme <= self.stance_step_size:
+    def _check_state_transition(self, dt: float, posterior_in_swing: bool=False) -> None:
+        if self.ground_contact and self.distance_to_noisy_posterior_extreme <= self.stance_step_size and not posterior_in_swing:
             self.ground_contact = False
             self.liftoff_position_history.append(
                 (self.tarsus_position - self.workspace_centre).copy()

@@ -42,6 +42,15 @@ class HexWalker:
         for leg in self.legs:
             print(leg.leg_label, leg.origin)
         self._set_tripod_pattern()
+        #ipsilateral_posterior_neighbour_connections 
+        self.posterior_neighbours = {
+            0: 1, #L1 -> L2 
+            1: 2,  #L2 -> L3
+            2: None, #L3 has no posterior neighbour
+            3: 4, #R1 -> R2 
+            4: 5, #R2 -> R3
+            5: None #R3 has no posterior neighbout 
+        }
 
     def _attach_legs(self) -> None: 
         """Create six HexWalkerLeg Objects from InsectBody attachment points"""
@@ -91,8 +100,15 @@ class HexWalker:
     ) -> None:
         """Update body position and orientation from displacement calculated from grounded legs."""
         translation, rotation = self._calculate_displacement()
-        for leg in self.legs: 
-            leg.update(dt)
+
+        for leg_index, leg in enumerate(self.legs): 
+            posterior_neighbour_index = self.posterior_neighbours[leg_index]
+            if posterior_neighbour_index is not None: 
+                posterior_in_swing = not self.legs[posterior_neighbour_index].ground_contact 
+            else: 
+                posterior_in_swing = False 
+            leg.update(dt, posterior_in_swing=posterior_in_swing)
+        
         self.body_position[0] += translation[0]
         self.body_position[1] += translation[1]
         self.body_orientation += rotation
