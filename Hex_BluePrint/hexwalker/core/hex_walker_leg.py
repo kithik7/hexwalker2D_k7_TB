@@ -69,6 +69,7 @@ class HexWalkerLeg:
         self.stance_step_size = 0.02 
         self.swing_step_size = 0.03 
         self.ground_contact = True 
+        self.received_excitation =False #Cruse Rule 2 
         self.stride_orientation = 0.0
         self.noise_level = 0.0
         self.frame = CoordinateMapper(parent=None)
@@ -165,8 +166,12 @@ class HexWalkerLeg:
                 (self.tarsus_position - self.workspace_centre).copy()
             )
             self._draw_noisy_anterior_extreme_position()
-        elif not self.ground_contact and self.distance_to_noisy_anterior_extreme <= self.swing_step_size:
+        elif not self.ground_contact and (
+            self.distance_to_noisy_anterior_extreme <= self.swing_step_size
+            or (self.received_excitation and self.distance_to_noisy_anterior_extreme <= self.swing_step_size * 2)
+        ):
             self.ground_contact = True
+            self.received_excitation = False 
             self.landing_position_history.append(
                 (self.tarsus_position - self.workspace_centre).copy()
             )

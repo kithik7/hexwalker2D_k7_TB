@@ -49,7 +49,16 @@ class HexWalker:
             2: None, #L3 has no posterior neighbour
             3: 4, #R1 -> R2 
             4: 5, #R2 -> R3
-            5: None #R3 has no posterior neighbout 
+            5: None, #R3 has no posterior neighbour 
+        }
+        #ipsilateral anterior neighbour connections 
+        self.anterior_neighbours = {
+            0: None, #L1 has no anterior neighbour 
+            1: 0, #L2 -> L3
+            2: 1, #L3 -> L2
+            3: None, #R1 has no anterior neighbour
+            4: 3, #R2 -> R1
+            5: None, # R3 -> R2 
         }
 
     def _attach_legs(self) -> None: 
@@ -103,12 +112,19 @@ class HexWalker:
 
         for leg_index, leg in enumerate(self.legs): 
             posterior_neighbour_index = self.posterior_neighbours[leg_index]
+            anterior_neighbour_index = self.anterior_neighbours[leg_index]
             if posterior_neighbour_index is not None: 
                 posterior_in_swing = not self.legs[posterior_neighbour_index].ground_contact 
             else: 
                 posterior_in_swing = False 
+
+            # Rule 2 excitatory pulse boolean tag on groundcontact bool
+            was_in_swing = not leg.ground_contact
             leg.update(dt, posterior_in_swing=posterior_in_swing)
-        
+            just_landed = was_in_swing and leg.ground_contact 
+
+            if just_landed and anterior_neighbour_index is not None: 
+                self.legs[anterior_neighbour_index].received_excitation = True
         self.body_position[0] += translation[0]
         self.body_position[1] += translation[1]
         self.body_orientation += rotation
