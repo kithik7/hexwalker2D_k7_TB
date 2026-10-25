@@ -45,14 +45,16 @@ class HexSimulation:
         for i, leg in enumerate(self.walker.legs):
             print(i, leg.leg_label, leg.origin[:2])
         #create figure and its axes 
-        self.fig, self.ax = plt.subplots(figsize=(10,10))
+        self.fig, (self.ax, self.traj_ax) = plt.subplots(1, 2, figsize=(14,8),
+                                                         gridspec_kw={'width_ratios':[2,1]})
         self.ax.set_xlim(-self.world_size / 2, self.world_size / 2)
         self.ax.set_ylim(-self.world_size / 2, self.world_size / 2)
         self.ax.set_aspect('equal')
         self.ax.set_facecolor('#f5f5f0')
         self.ax.grid(True, alpha= 0.2)
+        self.ax.set_autoscale_on(False)
 
-        plt.subplots_adjust(bottom=0.28) #scale layout to fit parameter slides
+        plt.subplots_adjust(bottom=0.33) #scale layout to fit parameter slides
 
         #store x and y trajectories 
         self.trajectory_x = []
@@ -147,31 +149,55 @@ class HexSimulation:
         )
         self.ax.add_patch(self.stability_polygon)
 
-        #body coordinate axes, red x and green y 
+        #body coordinate axes, red x and greegit add n y 
         self.body_x_axis, = self.ax.plot([], [], '-', color='#e8000b', linewidth=2.0)
         self.body_y_axis, = self.ax.plot([], [], '-', color='#00e64d', linewidth=2.0)
 
         #trace trajectory line 
         self.trajectory_line, = self.ax.plot([], [], '-', color='#3B8BD4',
                                              linewidth=1.0, alpha=0.8)
+        # minimap trajectory view
+        self.traj_ax.set_aspect('equal')
+        self.traj_ax.set_facecolor('#f5f5f0')
+        self.traj_ax.grid(True, alpha=0.2)
+        self.traj_ax.set_title('Trajectory Map', fontsize=9)
+        self.traj_ax.set_xlim(-self.world_size / 2, self.world_size / 2)
+        self.traj_ax.set_ylim(-self.world_size / 2, self.world_size / 2)
+
+        self.minimap_line, = self.traj_ax.plot([], [], '-', color='#3B8BD4', linewidth=1.0, alpha=0.8)
+        self.minimap_dot, = self.traj_ax.plot([], [], 'o', color='#e8000b', markersize=6)
 
         #add parameter adjustment sliders 
-        slider_ax_noise = plt.axes([0.2, 0.1, 0.6, 0.03])
+        slider_ax_coupling = plt.axes([0.2, 0.04, 0.6, 0.03])
+        self.coupling_slider = Slider(slider_ax_coupling, 'Coupling', 0.0, 1.0, valinit=0.3)
+        self.coupling_slider.on_changed(self._coupling_slider_callback)
+
+        slider_ax_speed = plt.axes([0.2, 0.09, 0.6, 0.03]) #
+        self.speed_slider = Slider(slider_ax_speed, 'Speed', 0.005, 0.05, valinit=0.02)
+        self.speed_slider.on_changed(self._speed_slider_callback)
+
+        slider_ax_noise = plt.axes([0.2, 0.14, 0.6, 0.03])
         self.noise_slider = Slider(slider_ax_noise, 'Noise', 0.0, 0.02, valinit=0.0)
         self.noise_slider.on_changed(self._noise_slider_callback)
 
-        slider_ax_curve = plt.axes([0.2, 0.05, 0.6, 0.03])
+        slider_ax_curve = plt.axes([0.2, 0.19, 0.6, 0.03])
         self.curve_slider = Slider(slider_ax_curve, 'Curve radius', 0.0, 0.3, valinit=0.0)
         self.curve_slider.on_changed(self._curve_slider_callback)
 
-        slider_ax_zoom = plt.axes([0.2, 0.15, 0.6, 0.03])
+        slider_ax_zoom = plt.axes([0.2, 0.24, 0.6, 0.03])
         self.zoom_slider = Slider(slider_ax_zoom, 'Zoom', 0.5, 5.0, valinit=1.0)
         self.zoom_slider.on_changed(self._zoom_slider_callback) 
 
-        button_ax = plt.axes([0.82, 0.20, 0.13, 0.04])
+        button_ax = plt.axes([0.82, 0.29, 0.13, 0.04])
         self.ellipse_toggle = Button(button_ax, 'Ellipses: OFF')
         self.ellipse_toggle.on_clicked(self._toggle_ellipses)
         self.show_ellipses = False
+
+    def _coupling_slider_callback(self, val: float) -> None:
+        self.walker.set_coupling_strength(val) #for rule 3 : how much legs can hold stance 
+
+    def _speed_slider_callback(self, val: float) -> None:
+        self.walker.set_speed(val)
 
     def _noise_slider_callback(self, val: float) -> None:
         """Update noise level on all legs when slider changes."""
@@ -200,22 +226,7 @@ class HexSimulation:
         """Update all visual elements for one timestep dt."""
 
         self.walker.update(self.dt)
-        body_pos = self.walker.body_position
-
-        pre_toroid_wrapping_position = self.walker.body_position[:2].copy()
-
-        # toroidal wrapping
-        half = self.world_size / 2
-        self.walker.body_position[0] = (self.walker.body_position[0] + half) % self.world_size - half
-        self.walker.body_position[1] = (self.walker.body_position[1] + half) % self.world_size - half
-        self.walker.body_frame.set_transform(
-            self.walker.body_position,
-            angle=self.walker.body_orientation,
-            scale=self.body_scale
-        )
-        half_view = (self.world_size / 2) / self.zoom_slider.val
-        self.ax.set_xlim(self.walker.body_position[0] - half_view, self.walker.body_position[0] + half_view)
-        self.ax.set_ylim(self.walker.body_position[1] - half_view, self.walker.body_position[1] + half_view)
+        body_pos = self.walker.body_position.copy()
         
         # all leg geometry in the same loop
         geometries = self.walker.get_world_geometry()
@@ -310,26 +321,46 @@ class HexSimulation:
             [body_pos[0], body_pos[0] + axis_length * np.cos(angle + np.pi / 2)],
             [body_pos[1], body_pos[1] + axis_length * np.sin(angle + np.pi / 2)]
         )
+        # store position before wrapping
+        pre_toroid_wrapping_position = self.walker.body_position[:2].copy()
+
+        # toroidal wrapping
+        half = self.world_size / 2
+        self.walker.body_position[0] = (self.walker.body_position[0] + half) % self.world_size - half
+        self.walker.body_position[1] = (self.walker.body_position[1] + half) % self.world_size - half
+
+        self.walker.body_frame.set_transform(
+            self.walker.body_position,
+            angle=self.walker.body_orientation,
+            scale=self.body_scale
+        )
+
+        # camera follow
+        half_view = (self.world_size / 2) / self.zoom_slider.val
+        self.ax.set_xlim(self.walker.body_position[0] - half_view, self.walker.body_position[0] + half_view)
+        self.ax.set_ylim(self.walker.body_position[1] - half_view, self.walker.body_position[1] + half_view)
 
         # trajectory
-        half = self.world_size / 2
         wrap_occured = (
-            abs(self.walker.body_position[0] - pre_toroid_wrapping_position[0]) > half or 
+            abs(self.walker.body_position[0] - pre_toroid_wrapping_position[0]) > half or
             abs(self.walker.body_position[1] - pre_toroid_wrapping_position[1]) > half
         )
-        if wrap_occured: 
+        if wrap_occured:
             self.trajectory_x.append(np.nan)
             self.trajectory_y.append(np.nan)
         self.trajectory_x.append(body_pos[0])
         self.trajectory_y.append(body_pos[1])
         self.trajectory_line.set_data(self.trajectory_x, self.trajectory_y)
-
+        self.minimap_line.set_data(self.trajectory_x, self.trajectory_y)
+        self.minimap_dot.set_data([self.walker.body_position[0]], [self.walker.body_position[1]])
+            
         return (self.tarsus_markers + self.leg_segments +
                 self.platonic_aep_markers + self.platonic_pep_markers +
                 self.noisy_aep_markers + self.noisy_pep_markers +
                 self.aep_scatter + self.pep_scatter +
                 [self.body_line, self.trajectory_line,
-                self.body_x_axis, self.body_y_axis])
+                self.body_x_axis, self.body_y_axis,
+                self.minimap_line, self.minimap_dot])
 
     def run(self) -> None:
         """Start playing all of the above"""

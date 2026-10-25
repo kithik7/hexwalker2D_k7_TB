@@ -121,6 +121,9 @@ class HexWalker:
         """Update body position and orientation from displacement calculated from grounded legs."""
         translation, rotation = self._calculate_displacement()
         print([leg.ground_contact for leg in self.legs])
+
+        
+
         for leg_index, leg in enumerate(self.legs): 
             posterior_neighbour_index = self.posterior_neighbours[leg_index]
             anterior_neighbour_index = self.anterior_neighbours[leg_index]
@@ -159,6 +162,7 @@ class HexWalker:
                     ))
 
             was_in_swing = not leg.ground_contact
+            
             leg.update(
                 dt, 
                 posterior_in_swing=posterior_in_swing, 
@@ -169,11 +173,14 @@ class HexWalker:
             just_landed = was_in_swing and leg.ground_contact 
             if just_landed and anterior_neighbour_index is not None: 
                 self.legs[anterior_neighbour_index].received_excitation = True
+
+        
         self.body_position[0] += translation[0]
         self.body_position[1] += translation[1]
         self.body_orientation += rotation
         self.body_frame.set_transform(self.body_position, angle=self.body_orientation, scale=self.body_scale)
-
+       
+    
     def _calculate_displacement(self) -> tuple:
         """Calculate body displacement using grounded leg pair."""
         grounded_legs = [leg for leg in self.legs if leg.ground_contact]
@@ -305,5 +312,13 @@ class HexWalker:
             leg.stride_orientation = CURVE_FACTORS[i] * curve_radius
             leg._calculate_stride_endpoints() #to recalculate AEP PEP based on new orientation
 
+    def set_coupling_strength(self, strength: float) -> None:
+        self.ipsilateral_rule3_strength = strength
+        self.contralateral_coupling_strength = strength
+
+    def set_speed(self, speed: float) -> None:
+        for leg in self.legs:
+            leg.stance_step_size = speed
+            #only stance step changes with speed 
 
 

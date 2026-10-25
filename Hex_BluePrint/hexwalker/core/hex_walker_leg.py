@@ -175,33 +175,45 @@ class HexWalkerLeg:
         self._move_tarsus(dt)
 
     def _check_state_transition(
-            self, 
-            dt: float, 
-            posterior_in_swing: bool=False, 
-            contralateral_swing_progress: float = 0.0, 
-            rule3_signal: float = 0.0,
-            contralateral_coupling_strength: float = 0.3,
-            rule3_coupling_strength: float = 0.3,
+        self, 
+        posterior_in_swing: bool = False, 
+        contralateral_swing_progress: float = 0.0, 
+        rule3_signal: float = 0.0,
+        contralateral_coupling_strength: float = 0.3,
+        rule3_coupling_strength: float = 0.3,
     ) -> None:
-        contralateral_inhibition = contralateral_swing_progress * contralateral_coupling_strength
-        effective_threshold = self.stance_step_size * (1.0 - contralateral_inhibition) + rule3_signal * self.stance_step_size * rule3_coupling_strength 
-        if self.ground_contact and self.distance_to_noisy_posterior_extreme <= effective_threshold and not posterior_in_swing:
-            self.ground_contact = False
-            self.liftoff_position_history.append(
-                (self.tarsus_position - self.workspace_centre).copy()
-            )
-            self._draw_noisy_anterior_extreme_position()
-            #rule2
-        elif not self.ground_contact and (
-            self.distance_to_noisy_anterior_extreme <= self.swing_step_size
-            or (self.received_excitation and self.distance_to_noisy_anterior_extreme <= self.swing_step_size * 1.5) #1.5swingsteps guard
-        ):
-            self.ground_contact = True
-            self.received_excitation = False 
-            self.landing_position_history.append(
-                (self.tarsus_position - self.workspace_centre).copy()
-            )
-            self._draw_noisy_posterior_extreme_position()
+
+        if self.ground_contact:
+
+        # gated rule 1 (cannot be vetoed)
+            if posterior_in_swing:
+                return
+            if contralateral_swing_progress > 0.5:
+                return
+
+            # Gate 2: timing. Only reached if Gate 1 passes.
+            # Rule 3 extends the threshold proportionally to the incoming signal.
+            extended_threshold = self.stance_step_size * (1.0 + rule3_signal * rule3_coupling_strength)
+            if self.distance_to_noisy_posterior_extreme <= extended_threshold:
+                self.ground_contact = False
+                self.liftoff_position_history.append(
+                    (self.tarsus_position - self.workspace_centre).copy()
+                )
+                self._draw_noisy_anterior_extreme_position()
+
+        else:
+
+            # Landing: touch down when close to noisy AEP.
+            if (
+                self.distance_to_noisy_anterior_extreme <= self.swing_step_size
+                or (self.received_excitation and self.distance_to_noisy_anterior_extreme <= self.swing_step_size * 1.5)
+            ):
+                self.ground_contact = True
+                self.received_excitation = False
+                self.landing_position_history.append(
+                    (self.tarsus_position - self.workspace_centre).copy()
+                )
+                self._draw_noisy_posterior_extreme_position()
             
     def _move_tarsus(self, dt: float) -> None:
         if self.ground_contact:
