@@ -118,8 +118,8 @@ class InsectBody:
         y_min = self.normalised_outline[:, 1].min()
         y_max = self.normalised_outline[:, 1].max()
         y_range = y_max - y_min 
-        y_lower_bound = y_min + 0.3 * y_range
-        y_upper_bound = y_max - 0.2 * y_range
+        y_lower_bound = y_min + 0.25 * y_range
+        y_upper_bound = y_max - 0.25 * y_range
        
         in_body_region = (
             (self.normalised_outline[:, 1] > y_lower_bound) &
@@ -140,12 +140,14 @@ class InsectBody:
             band_points = body_points[in_band]
             left_band = band_points[band_points[:, 0] < 0]
             right_band = band_points[band_points[:, 0] > 0]
-            if len(left_band) > 0:
-                lateral_left_most_point = left_band[np.argmin(left_band[:, 0])]
-                attachment_point_list.append(lateral_left_most_point)
-            if len(right_band) > 0: 
-                lateral_right_most_point = right_band[np.argmax(right_band[:, 0])]
-                attachment_point_list.append(lateral_right_most_point)
+            if len(left_band) > 0 and len(right_band) > 0:
+                left_point = left_band[np.argmin(left_band[:, 0])]
+                right_point = right_band[np.argmax(right_band[:, 0])]
+                print(f"Band {band} raw:  left={left_point}, right={right_point}")
+                mean_y = (left_point[1] + right_point[1]) / 2.0
+                print(f"Band {band} mean_y: {mean_y}")
+                attachment_point_list.append(np.array([left_point[0], mean_y]))
+                attachment_point_list.append(np.array([right_point[0], mean_y]))
         self.attachment_points = np.array(attachment_point_list)
             
 

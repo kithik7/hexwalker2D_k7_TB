@@ -122,7 +122,21 @@ class HexWalker:
         translation, rotation = self._calculate_displacement()
         print([leg.ground_contact for leg in self.legs])
 
-        
+        contralateral_progress_snapshot = []
+        for leg_index in range(6):
+            contralateral_leg = self.legs[self.contralateral_neighbours[leg_index]]
+            if not contralateral_leg.ground_contact:
+                swing_direction = (contralateral_leg.anterior_extreme_position - contralateral_leg.posterior_extreme_position)
+                swing_direction = swing_direction / np.linalg.norm(swing_direction)
+                tarsus_displacement = contralateral_leg.tarsus_position - contralateral_leg.posterior_extreme_position
+                progress = float(np.clip(
+                    np.dot(tarsus_displacement, swing_direction) / contralateral_leg.stride_amplitude,
+                    0.0, 1.0
+                ))
+            else:
+                progress = 0.0
+            contralateral_progress_snapshot.append(progress)
+
 
         for leg_index, leg in enumerate(self.legs): 
             posterior_neighbour_index = self.posterior_neighbours[leg_index]
@@ -134,17 +148,7 @@ class HexWalker:
             else: 
                 posterior_in_swing = False 
 
-            contralateral_leg = self.legs[contralateral_index]
-            if not contralateral_leg.ground_contact:
-                swing_direction = (contralateral_leg.anterior_extreme_position - contralateral_leg.posterior_extreme_position)
-                swing_direction = swing_direction / np.linalg.norm(swing_direction)
-                tarsus_displacement = contralateral_leg.tarsus_position - contralateral_leg.posterior_extreme_position
-                contralateral_swing_progress = float(np.clip(
-                    np.dot(tarsus_displacement, swing_direction) / contralateral_leg.stride_amplitude,
-                    0.0, 1.0
-                ))
-            else:
-                contralateral_swing_progress = 0.0
+           
            
             #rule 3 runs in all ticks 
             # Rule 2 excitatory pulse boolean tag on groundcontact bool
@@ -166,7 +170,7 @@ class HexWalker:
             leg.update(
                 dt, 
                 posterior_in_swing=posterior_in_swing, 
-                contralateral_swing_progress=contralateral_swing_progress, 
+                contralateral_swing_progress=contralateral_progress_snapshot[leg_index], 
                 rule3_signal=rule3_signal,
                 contralateral_coupling_strength=self.contralateral_coupling_strength,
                 rule3_coupling_strength=self.ipsilateral_rule3_strength)

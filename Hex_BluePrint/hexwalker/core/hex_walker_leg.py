@@ -68,7 +68,7 @@ class HexWalkerLeg:
         self.stride_amplitude = 0.3
         self.stance_step_size = 0.02 
         self.swing_step_size = 0.03 
-        self.ground_contact = True 
+        # self.ground_contact = True 
         self.received_excitation =False #Cruse Rule 2 
         self.ticks_in_swing = 0 
         self.min_swing_duration = 0 #in ticks 
@@ -77,6 +77,8 @@ class HexWalkerLeg:
         self.frame = CoordinateMapper(parent=None)
         self.landing_position_history  = []
         self.liftoff_position_history = []
+        self.phase = np.pi #start in stance 
+        self.omega_current = self.stance_step_size
 
     def _initialise_tarsus_position(self) -> None: 
         self.tarsus_position = self.workspace_centre.copy()
@@ -98,7 +100,16 @@ class HexWalkerLeg:
         rotated_forward_direction = rotation_matrix @ forward_direction
         stride_vector = rotated_forward_direction * self.stride_amplitude / 2 
         return stride_vector 
-    
+
+    @property
+    def ground_contact(self) -> bool:
+        return np.pi <= self.phase < 2 * np.pi
+
+    @ground_contact.setter 
+    def ground_contact(self, value: bool) -> None:
+        if value: 
+            self.phase = np.pi 
+        else: self.phase = 0.0
     @property
     def distance_to_posterior_extreme(self) -> float:
         return np.linalg.norm(self.posterior_extreme_position - self.tarsus_position)
@@ -185,7 +196,7 @@ class HexWalkerLeg:
 
         if self.ground_contact:
 
-        # gated rule 1 (cannot be vetoed)
+        #gated rule 1 (cannot be vetoed)
             if posterior_in_swing:
                 return
             if contralateral_swing_progress > 0.5:
