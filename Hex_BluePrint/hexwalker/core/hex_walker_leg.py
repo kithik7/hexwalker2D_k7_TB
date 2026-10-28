@@ -226,14 +226,24 @@ class HexWalkerLeg:
                 )
                 self._draw_noisy_posterior_extreme_position()
             
-    def _move_tarsus(self, dt: float) -> None:
-        if self.ground_contact:
-            self.ticks_in_swing = 0 
-            self.tarsus_position += self.normalised_vector_to_noisy_posterior_extreme * self.stance_step_size 
+    def _tarsus_from_phase(self) -> None: 
+        if not self.ground_contact:
+            fraction = self.phase / np.pi 
+            self.tarsus_position = (
+                self.noisy_posterior_extreme_position 
+                + fraction * (
+                    self.noisy_anterior_extreme_position - self.noisy_posterior_extreme_position
+                )
+            )
         else:
-            self.ticks_in_swing += 1
-            self.tarsus_position += self.normalised_vector_to_noisy_anterior_extreme * self.swing_step_size    
-
+            fraction = (self.phase - np.pi) / np.pi 
+            self.tarsus_position = (
+                self.noisy_anterior_extreme_position
+                + fraction * (
+                    self.noisy_posterior_extreme_position
+                    - self.noisy_anterior_extreme_position
+                )
+            )
     def _draw_noisy_anterior_extreme_position(self) -> None:
         if self.noise_level == 0.0:
             self.noisy_anterior_extreme_position = self.anterior_extreme_position.copy()
