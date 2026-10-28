@@ -134,7 +134,7 @@ class HexSimulation:
 
         #workspace circles 
         self.workspace_circles = [ 
-            plt.Circle((0,0), 0.08 * self.body_scale, fill=False,
+            plt.Circle((0,0), 0.06, fill=False,
                        color='#3B8BD4', linewidth=1.5, alpha=0.6)
             for _ in range(6)
 

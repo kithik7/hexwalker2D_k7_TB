@@ -71,6 +71,12 @@ class HexWalker:
             5: 2,
         }
 
+        #K Coupling strength values 
+        self.K1 = 0.3
+        self.K2 = 0.1 
+        self.K3 = 0.3
+        self.K4 = 0.6
+
     def _attach_legs(self) -> None: 
         """Create six HexWalkerLeg Objects from InsectBody attachment points"""
         attachment_points = self.insect_body.attachment_points 
@@ -78,6 +84,10 @@ class HexWalker:
         left_points = sorted([p for p in attachment_points if p[0] < 0], key=lambda p: -p[1])
         right_points = sorted([p for p in attachment_points if p[0] > 0], key=lambda p: -p[1])
         attachment_points = np.array(left_points + right_points)
+        print("sorted attachment points:")
+        for i, p in enumerate(attachment_points):
+            print(f"  {i}: {p}")
+        
         workspace_centres = self._calculate_workspace_centres(attachment_points)
         leg_labels = ['L1', 'L2', 'L3', 'R1', 'R2', 'R3']
 
@@ -88,175 +98,150 @@ class HexWalker:
                 leg_label=leg_labels[i],
                 origin=origin,
                 workspace_centre=workspace_centres[i],
-                workspace_radius=0.2
+                workspace_radius=0.2,
+                dt = self.dt,
             )
             self.legs.append(leg)
             leg.frame.parent = self.body_frame
             leg.frame.set_transform(np.append(attachment_points[i], 0.0), scale=1.0)
         self.ipsilateral_rule3_strength = 0.3
         self.contralateral_coupling_strength = 0.3
-    def _calculate_workspace_centres(
-            self, 
-            attachment_points: np.ndarray, 
-    ) -> list:
-        """Calculate workspace centre in the protruding outward direction for each attachment point"""
+
+    def _calculate_workspace_centres(self, attachment_points: np.ndarray) -> list:
         body_edge_to_workspace_centre_distance = 0.15
         centres = []
-        for point in attachment_points: 
+        for point in attachment_points:
             outward_direction = point / np.linalg.norm(point)
             centre = np.append(outward_direction * body_edge_to_workspace_centre_distance, 0.0)
-            centres.append(centre) #Leg class expects 3 element arrays, 
-        return centres 
-
+            centres.append(centre)
+        return centres
+            
     def _set_tripod_pattern(self) -> None: 
         """Set alternating tripod starting pattern. Legs 0, 2, 4 start in swing."""
         self.legs[0].ground_contact = False 
         self.legs[2].ground_contact = False 
         self.legs[4].ground_contact = False 
+        for leg in self.legs: 
+            leg._tarsus_from_phase()
 
-    def update(
-            self,
-            dt: float
-    ) -> None:
-        """Update body position and orientation from displacement calculated from grounded legs."""
-        translation, rotation = self._calculate_displacement()
-        print([leg.ground_contact for leg in self.legs])
-
-        contralateral_progress_snapshot = []
-        for leg_index in range(6):
-            contralateral_leg = self.legs[self.contralateral_neighbours[leg_index]]
-            if not contralateral_leg.ground_contact:
-                swing_direction = (contralateral_leg.anterior_extreme_position - contralateral_leg.posterior_extreme_position)
-                swing_direction = swing_direction / np.linalg.norm(swing_direction)
-                tarsus_displacement = contralateral_leg.tarsus_position - contralateral_leg.posterior_extreme_position
-                progress = float(np.clip(
-                    np.dot(tarsus_displacement, swing_direction) / contralateral_leg.stride_amplitude,
-                    0.0, 1.0
-                ))
-            else:
-                progress = 0.0
-            contralateral_progress_snapshot.append(progress)
-
-
-        for leg_index, leg in enumerate(self.legs): 
-            posterior_neighbour_index = self.posterior_neighbours[leg_index]
-            anterior_neighbour_index = self.anterior_neighbours[leg_index]
-            contralateral_index = self.contralateral_neighbours[leg_index]
-
-            if posterior_neighbour_index is not None: 
-                posterior_in_swing = not self.legs[posterior_neighbour_index].ground_contact 
-            else: 
-                posterior_in_swing = False 
-
-           
-           
-            #rule 3 runs in all ticks 
-            # Rule 2 excitatory pulse boolean tag on groundcontact bool
-
-            rule3_signal = 0.0
-            if anterior_neighbour_index is not None:
-                anterior_leg = self.legs[anterior_neighbour_index]
-                if anterior_leg.ground_contact: 
-                    stance_direction = anterior_leg.posterior_extreme_position - anterior_leg.anterior_extreme_position
-                    stance_direction = stance_direction / np.linalg.norm(stance_direction)
-                    tarsus_displacement = anterior_leg.tarsus_position - anterior_leg.anterior_extreme_position
-                    rule3_signal = float(np.clip(
-                        np.dot(tarsus_displacement, stance_direction) / anterior_leg.stride_amplitude,
-                        0.0, 1.0
-                    ))
-
-            was_in_swing = not leg.ground_contact
-            
-            leg.update(
-                dt, 
-                posterior_in_swing=posterior_in_swing, 
-                contralateral_swing_progress=contralateral_progress_snapshot[leg_index], 
-                rule3_signal=rule3_signal,
-                contralateral_coupling_strength=self.contralateral_coupling_strength,
-                rule3_coupling_strength=self.ipsilateral_rule3_strength)
-            just_landed = was_in_swing and leg.ground_contact 
-            if just_landed and anterior_neighbour_index is not None: 
-                self.legs[anterior_neighbour_index].received_excitation = True
-
+    def update(self, dt: float) -> None:
+        # pass 1: read only (Haskell-like error free updating)
+        # take a frozen snapshot and compute all six derivatives
+        phase_snapshot = [leg.phase for leg in self.legs]
         
+
+        coupling_signals = []
+        for i in range(6):
+            signal = 0.0
+
+            post_idx = self.posterior_neighbours[i]
+            if post_idx is not None:
+                signal += self.K1 * np.sin(
+                    phase_snapshot[post_idx] - phase_snapshot[i] - 2 * np.pi / 3
+                )
+
+            ant_idx = self.anterior_neighbours[i]
+            if ant_idx is not None:
+                signal += self.K3 * np.sin(
+                    phase_snapshot[ant_idx] - phase_snapshot[i] + 2 * np.pi / 3
+                )
+
+            contra_idx = self.contralateral_neighbours[i]
+            signal += self.K4 * np.sin(
+                phase_snapshot[contra_idx] - phase_snapshot[i] - np.pi
+            )
+
+            coupling_signals.append(signal)
+
+        # pass 2: write only
+        # update all legs from the signals computed in pass one
+        rule2_fires = []
+        for i, leg in enumerate(self.legs):
+            fired = leg.update_phase(dt, coupling_signals[i])
+            rule2_fires.append(fired)
+
+        # Rule 2 at phase crossings: impulsation goes off only after all phase updates
+        for i, fired in enumerate(rule2_fires):
+            if fired:
+                ant_idx = self.anterior_neighbours[i]
+                if ant_idx is not None:
+                    self.legs[ant_idx].phase = (
+                        self.legs[ant_idx].phase + self.K2
+                    ) % (2 * np.pi)
+
+        #now displacement is computed from what really moved 
+        translation, rotation = self._calculate_displacement()
+        
+        # body update
         self.body_position[0] += translation[0]
         self.body_position[1] += translation[1]
         self.body_orientation += rotation
-        self.body_frame.set_transform(self.body_position, angle=self.body_orientation, scale=self.body_scale)
-       
-    
+        self.body_frame.set_transform(
+            self.body_position,
+            angle=self.body_orientation,
+            scale=self.body_scale
+        )
+        
     def _calculate_displacement(self) -> tuple:
         """Calculate body displacement using grounded leg pair."""
         grounded_legs = [leg for leg in self.legs if leg.ground_contact]
-    
         if len(grounded_legs) < 2:
             return np.zeros(2), 0.0
-    
+
         all_translations = []
         all_rotations = []
-    
-        pairs = [(grounded_legs[i], grounded_legs[j]) 
-                for i in range(len(grounded_legs)) 
+        pairs = [(grounded_legs[i], grounded_legs[j])
+                for i in range(len(grounded_legs))
                 for j in range(i + 1, len(grounded_legs))]
-    
+
         for leg_a, leg_b in pairs:
-        
-            # new positions of origins after one stance step
-            p1 = leg_a.origin + leg_a.normalised_vector_to_noisy_posterior_extreme * -1 * leg_a.stance_step_size 
-            p2 = leg_b.origin + leg_b.normalised_vector_to_noisy_posterior_extreme * -1 * leg_b.stance_step_size 
-        
-            # unit vector between origins before and after
+            p1 = leg_a.origin + leg_a.normalised_vector_to_noisy_posterior_extreme * -1 * leg_a.stance_step_size
+            p2 = leg_b.origin + leg_b.normalised_vector_to_noisy_posterior_extreme * -1 * leg_b.stance_step_size
+
             v_original = leg_a.origin - leg_b.origin
             norm_orig = np.linalg.norm(v_original)
             if norm_orig < 1e-10:
                 continue
             v_original = v_original / norm_orig
-        
+
             v_new = p1 - p2
             norm_new = np.linalg.norm(v_new)
             if norm_new < 1e-10:
                 continue
             v_new = v_new / norm_new
-        
+
             dp = np.clip(np.dot(v_original, v_new), -1.0, 1.0)
             angle = np.arccos(dp)
-        
             cross = np.cross(v_original, v_new)
             if cross[2] < 0:
                 angle = -angle
-        
-            # rotation matrix
-            c = np.cos(angle)
-            s = np.sin(angle)
-            R = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
-        
-            # where COM ends up according to each leg in pair
+
             com = np.zeros(3)
-        
-            t1 = (R @ (com - leg_a.origin)) + leg_a.origin + leg_a.normalised_vector_to_noisy_posterior_extreme * -1 * leg_a.stance_step_size 
-            t2 = (R @ (com - leg_b.origin)) + leg_b.origin + leg_b.normalised_vector_to_noisy_posterior_extreme * -1 * leg_b.stance_step_size 
-        
+            t1 = (np.array([[np.cos(angle), -np.sin(angle), 0],
+                         [np.sin(angle),  np.cos(angle), 0],
+                         [0, 0, 1]]) @ (com - leg_a.origin)) + leg_a.origin + leg_a.normalised_vector_to_noisy_posterior_extreme * -1 * leg_a.stance_step_size
+            t2 = (np.array([[np.cos(angle), -np.sin(angle), 0],
+                         [np.sin(angle),  np.cos(angle), 0],
+                         [0, 0, 1]]) @ (com - leg_b.origin)) + leg_b.origin + leg_b.normalised_vector_to_noisy_posterior_extreme * -1 * leg_b.stance_step_size
+
             all_translations.append(t1[:2])
             all_translations.append(t2[:2])
             all_rotations.append(angle)
             all_rotations.append(angle)
-    
+
         if not all_translations:
             return np.zeros(2), 0.0
-    
+
         mean_position = np.mean(all_translations, axis=0)
         mean_rotation = np.mean(all_rotations)
-    
-        # displacement is difference between new COM position and current
         displacement = mean_position * self.body_scale
         c = np.cos(self.body_orientation)
         s = np.sin(self.body_orientation)
         world_x = c * displacement[0] - s * displacement[1]
         world_y = s * displacement[0] + c * displacement[1]
-        #print(f"mean_position: {mean_position}, displacement: {np.array([world_x, world_y])}")
-        return np.array([world_x, world_y]), mean_rotation
-     
-
+        return np.array([world_x, world_y]), mean_rotation   
+       
+    
     def get_tarsus_positions(self) -> np.ndarray:
         """Return tarsus positions in world coordinates via kinematic chain."""
         return np.array([
@@ -317,12 +302,15 @@ class HexWalker:
             leg._calculate_stride_endpoints() #to recalculate AEP PEP based on new orientation
 
     def set_coupling_strength(self, strength: float) -> None:
-        self.ipsilateral_rule3_strength = strength
-        self.contralateral_coupling_strength = strength
+        self.K1 = strength
+        self.K3 = strength 
+        self.K4 = strength #contralateral
 
     def set_speed(self, speed: float) -> None:
         for leg in self.legs:
             leg.stance_step_size = speed
+            cycle_time = (leg.stride_amplitude / speed) * 0.02
+            leg.omega_current = (2 * np.pi) / cycle_time
             #only stance step changes with speed 
 
 

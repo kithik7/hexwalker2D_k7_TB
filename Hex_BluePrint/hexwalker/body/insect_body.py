@@ -114,48 +114,21 @@ class InsectBody:
         if centroid_y < 0: 
             self.normalised_outline[:, 1] *= -1
 
-    def _find_attachment_points(self) -> None: 
-        y_min = self.normalised_outline[:, 1].min()
-        y_max = self.normalised_outline[:, 1].max()
-        y_range = y_max - y_min 
-        y_lower_bound = y_min + 0.25 * y_range
-        y_upper_bound = y_max - 0.25 * y_range
-       
-        in_body_region = (
-            (self.normalised_outline[:, 1] > y_lower_bound) &
-            (self.normalised_outline[:, 1] < y_upper_bound) 
-        )
-
-        body_points = self.normalised_outline[in_body_region]
-        y_band_size = (y_upper_bound - y_lower_bound) / 3 
-        attachment_point_list = []
-        for band in range(3):
-            band_lower = y_lower_bound + band * y_band_size
-            band_upper = y_lower_bound + (band + 1) * y_band_size 
-        
-            in_band = (
-                (body_points[:, 1] >= band_lower) &
-                (body_points[:, 1] < band_upper)
-            )
-            band_points = body_points[in_band]
-            left_band = band_points[band_points[:, 0] < 0]
-            right_band = band_points[band_points[:, 0] > 0]
-            if len(left_band) > 0 and len(right_band) > 0:
-                left_point = left_band[np.argmin(left_band[:, 0])]
-                right_point = right_band[np.argmax(right_band[:, 0])]
-                print(f"Band {band} raw:  left={left_point}, right={right_point}")
-                mean_y = (left_point[1] + right_point[1]) / 2.0
-                print(f"Band {band} mean_y: {mean_y}")
-                attachment_point_list.append(np.array([left_point[0], mean_y]))
-                attachment_point_list.append(np.array([right_point[0], mean_y]))
-        self.attachment_points = np.array(attachment_point_list)
-            
-
+    def _find_attachment_points(self) -> None:
+        self.attachment_points = np.array([
+            [-0.16,  0.29],   # L1 front
+            [-0.18,  0.07],   # L2 middle
+            [-0.16, -0.08],   # L3 hind
+            [ 0.16,  0.29],   # R1 front
+            [ 0.18,  0.07],   # R2 middle
+            [ 0.16, -0.08],   # R3 hind
+        ])
 #test 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt 
-
-    body = InsectBody('Hex_BluePrint/flySilhouette.mat')
+    from pathlib import Path
+    mat_path = Path(__file__).parent / 'flySilhouette.mat'
+    body = InsectBody(str(mat_path))
     fig, ax = plt.subplots(figsize=(6,8))
     ax.plot(body.normalised_outline[:, 0], body.normalised_outline[:, 1],
             color='#4a4a6a', linewidth=1.5)

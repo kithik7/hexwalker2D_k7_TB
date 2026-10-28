@@ -36,8 +36,9 @@ class HexWalkerLeg:
         origin: np.ndarray, 
         workspace_centre: np.ndarray,
         workspace_radius: float, 
+        dt: float = 0.02,
     ) -> None: 
-        
+        self.dt = dt
         self._store_identity(
             leg_id,
             leg_label, 
@@ -48,6 +49,7 @@ class HexWalkerLeg:
         self._set_default_parameters()
         self._initialise_tarsus_position()
         self._calculate_stride_endpoints()
+        self._tarsus_from_phase()
         
 
     def _store_identity(
@@ -78,7 +80,8 @@ class HexWalkerLeg:
         self.landing_position_history  = []
         self.liftoff_position_history = []
         self.phase = np.pi #start in stance 
-        self.omega_current = self.stance_step_size
+        cycle_time = (2 * self.stride_amplitude / self.stance_step_size) * self.dt
+        self.omega_current = (2 * np.pi) / cycle_time
 
     def _initialise_tarsus_position(self) -> None: 
         self.tarsus_position = self.workspace_centre.copy()
@@ -168,64 +171,48 @@ class HexWalkerLeg:
     def distance_to_noisy_posterior_extreme(self) -> float:
         return np.linalg.norm(self.vector_to_noisy_posterior_extreme)
     
-    def update(
-            self, 
-            dt: float, 
-            posterior_in_swing: bool = False, 
-            contralateral_swing_progress: float = 0.0, 
-            rule3_signal: float = 0.0, 
-            contralateral_coupling_strength: float=0.3, 
-            rule3_coupling_strength: float = 0.3,
-    ) -> None: 
-        self._check_state_transition(
-            posterior_in_swing, 
-            contralateral_swing_progress, 
-            rule3_signal,
-            contralateral_coupling_strength,
-            rule3_coupling_strength)
-        self._move_tarsus(dt)
+    def update_phase(
+        self,
+        dt: float,
+        coupling_signal: float,
+    ) -> bool:
+        old_phase = self.phase
+        old_tarsus = self.tarsus_position.copy()
+        # full derivative: local omega plus all coupling signals
+        d_theta = self.omega_current + coupling_signal
 
-    def _check_state_transition(
-        self, 
-        posterior_in_swing: bool = False, 
-        contralateral_swing_progress: float = 0.0, 
-        rule3_signal: float = 0.0,
-        contralateral_coupling_strength: float = 0.3,
-        rule3_coupling_strength: float = 0.3,
-    ) -> None:
+        # Euler step on the circle
+        self.phase = (self.phase + dt * d_theta) % (2 * np.pi)
 
-        if self.ground_contact:
+        # detect surface crossings
+        crossed_liftoff = (old_phase < 2 * np.pi and self.phase < old_phase
+                          and old_phase > np.pi)
+        crossed_touchdown = (old_phase < np.pi <= self.phase)
 
-        #gated rule 1 (cannot be vetoed)
-            if posterior_in_swing:
-                return
-            if contralateral_swing_progress > 0.5:
-                return
+        sends_rule2 = False
 
-            # Gate 2: timing. Only reached if Gate 1 passes.
-            # Rule 3 extends the threshold proportionally to the incoming signal.
-            extended_threshold = self.stance_step_size * (1.0 + rule3_signal * rule3_coupling_strength)
-            if self.distance_to_noisy_posterior_extreme <= extended_threshold:
-                self.ground_contact = False
-                self.liftoff_position_history.append(
-                    (self.tarsus_position - self.workspace_centre).copy()
-                )
-                self._draw_noisy_anterior_extreme_position()
+        if crossed_liftoff:
+            self._draw_noisy_anterior_extreme_position()
+            noise = np.random.normal(0, self.noise_level) if self.noise_level > 0 else 0.0
+            cycle_time = (2 * self.stride_amplitude / self.stance_step_size) * 0.02
+            self.omega_current = (2 * np.pi / cycle_time) + noise
+            self.liftoff_position_history.append(
+                (self.tarsus_position - self.workspace_centre).copy()
+            )
 
-        else:
+        if crossed_touchdown:
+            self._draw_noisy_posterior_extreme_position()
+            noise = np.random.normal(0, self.noise_level) if self.noise_level > 0 else 0.0
+            cycle_time = (2 * self.stride_amplitude / self.stance_step_size) * 0.02
+            self.omega_current = (2 * np.pi / cycle_time) + noise
+            self.landing_position_history.append(
+                (self.tarsus_position - self.workspace_centre).copy()
+            )
+            sends_rule2 = True
 
-            # Landing: touch down when close to noisy AEP.
-            if (
-                self.distance_to_noisy_anterior_extreme <= self.swing_step_size
-                or (self.received_excitation and self.distance_to_noisy_anterior_extreme <= self.swing_step_size * 1.5)
-            ):
-                self.ground_contact = True
-                self.received_excitation = False
-                self.landing_position_history.append(
-                    (self.tarsus_position - self.workspace_centre).copy()
-                )
-                self._draw_noisy_posterior_extreme_position()
-            
+        self._tarsus_from_phase()
+        return sends_rule2
+    
     def _tarsus_from_phase(self) -> None: 
         if not self.ground_contact:
             fraction = self.phase / np.pi 
