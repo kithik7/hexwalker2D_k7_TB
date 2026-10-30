@@ -36,8 +36,7 @@ class HexWalker:
         self.body_frame = CoordinateMapper(parent=self.world_frame)
         self.body_frame.set_transform(self.body_position, angle=self.body_orientation, scale=self.body_scale) 
         print("calling set_transform with scale:", self.body_scale)
-        self.body_frame.set_transform(self.body_position, angle=self.body_orientation, scale=self.body_scale)
-        print("body frame after set:", self.body_frame.local_transform)
+ 
         self._attach_legs()
         for leg in self.legs:
             print(leg.leg_label, leg.origin)
@@ -118,9 +117,12 @@ class HexWalker:
             
     def _set_tripod_pattern(self) -> None: 
         """Set alternating tripod starting pattern. Legs 0, 2, 4 start in swing."""
-        self.legs[0].ground_contact = False 
-        self.legs[2].ground_contact = False 
-        self.legs[4].ground_contact = False 
+        tripod_A = [0, 2, 4] #swing: phase in 0, pi 
+        tripod_B = [1, 3, 5] #stance: phase in pi, 2pi
+        for i, idx in enumerate(tripod_A): 
+            self.legs[idx].phase = i * (2 * np.pi / 3)
+        for i, idx in enumerate(tripod_B):
+            self.legs[idx].phase = np.pi + i * (2 * np.pi / 3)
         for leg in self.legs: 
             leg._tarsus_from_phase()
 
@@ -309,7 +311,7 @@ class HexWalker:
     def set_speed(self, speed: float) -> None:
         for leg in self.legs:
             leg.stance_step_size = speed
-            cycle_time = (leg.stride_amplitude / speed) * 0.02
+            cycle_time = (2 * leg.stride_amplitude / speed) * 0.02
             leg.omega_current = (2 * np.pi) / cycle_time
             #only stance step changes with speed 
 
