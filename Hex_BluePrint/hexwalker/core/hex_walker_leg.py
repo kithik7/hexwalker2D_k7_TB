@@ -70,18 +70,36 @@ class HexWalkerLeg:
         self.stride_amplitude = 0.3
         self.stance_step_size = 0.02 
         self.swing_step_size = 0.03 
-        # self.ground_contact = True 
-        self.received_excitation =False #Cruse Rule 2 
-        self.ticks_in_swing = 0 
-        self.min_swing_duration = 0 #in ticks 
         self.stride_orientation = 0.0
         self.noise_level = 0.0
         self.frame = CoordinateMapper(parent=None)
         self.landing_position_history  = []
         self.liftoff_position_history = []
         self.phase = np.pi #start in stance 
-        cycle_time = (2 * self.stride_amplitude / self.stance_step_size) * self.dt
-        self.omega_current = (2 * np.pi) / cycle_time
+        self._update_timing()
+        self.last_step = np.zeros(3)
+        self.phase_kick = 0.0
+
+    def _update_timing(self) -> None:
+        stance_ticks = self.stride_amplitude / self.stance_step_size
+        swing_ticks = self.stride_amplitude / self.swing_step_size
+        cycle_ticks = stance_ticks + swing_ticks
+        self.base_omega = 2 * np.pi / (cycle_ticks * self.dt)
+        self.touchdown_phase = 2 * np.pi * swing_ticks / cycle_ticks
+        self.omega_current = self.base_omega #base omega is 2 pi / cycle duration (ticks x dt) : steady clock rate
+
+    def set_stance_step(self, new_step: float) -> None:
+        was_stance = self.ground_contact
+        if was_stance:
+            progress = (self.phase - self.touchdown_phase) / (2 * np.pi - self.touchdown_phase)
+        else:
+            progress = self.phase / self.touchdown_phase
+        self.stance_step_size = new_step
+        self._update_timing()
+        if was_stance:
+            self.phase = self.touchdown_phase + progress * (2 * np.pi - self.touchdown_phase)
+        else:
+            self.phase = progress * self.touchdown_phase
 
     def _initialise_tarsus_position(self) -> None: 
         self.tarsus_position = self.workspace_centre.copy()
@@ -89,8 +107,8 @@ class HexWalkerLeg:
     def _calculate_stride_endpoints(self) -> None: 
         rotation_matrix = self._build_rotation_matrix()
         stride_vector = self._calculate_stride_vector(rotation_matrix)
-        self.anterior_extreme_position = self.tarsus_position + stride_vector
-        self.posterior_extreme_position = self.tarsus_position - stride_vector
+        self.anterior_extreme_position = self.workspace_centre + stride_vector
+        self.posterior_extreme_position = self.workspace_centre - stride_vector
         self.noisy_anterior_extreme_position = self.anterior_extreme_position.copy()
         self.noisy_posterior_extreme_position = self.posterior_extreme_position.copy()
 
@@ -106,71 +124,9 @@ class HexWalkerLeg:
 
     @property
     def ground_contact(self) -> bool:
-        return np.pi <= self.phase < 2 * np.pi
+        return self.touchdown_phase <= self.phase < 2 * np.pi
 
-    @ground_contact.setter 
-    def ground_contact(self, value: bool) -> None:
-        if value: 
-            self.phase = np.pi 
-        else: self.phase = 0.0
-    @property
-    def distance_to_posterior_extreme(self) -> float:
-        return np.linalg.norm(self.posterior_extreme_position - self.tarsus_position)
-
-    @property 
-    def distance_to_anterior_extreme(self) -> float:
-        return np.linalg.norm(self.anterior_extreme_position - self.tarsus_position)
-
-    @property
-    def vector_to_posterior_extreme(self) -> np.ndarray:
-        return self.posterior_extreme_position - self.tarsus_position
-
-    @property
-    def vector_to_anterior_extreme(self) -> np.ndarray:
-        return self.anterior_extreme_position - self.tarsus_position
-
-    @property
-    def normalised_vector_to_posterior_extreme(self) -> np.ndarray:
-        if self.distance_to_posterior_extreme == 0: 
-            return np.zeros(3)
-        return self.vector_to_posterior_extreme / self.distance_to_posterior_extreme
-
-    @property
-    def normalised_vector_to_anterior_extreme(self) -> np.ndarray:
-        if self.distance_to_anterior_extreme == 0: 
-            return np.zeros(3)
-        return self.vector_to_anterior_extreme / self.distance_to_anterior_extreme
-
-    @property
-    def vector_to_noisy_anterior_extreme(self) -> np.ndarray:
-        return self.noisy_anterior_extreme_position - self.tarsus_position
-
-    @property
-    def normalised_vector_to_noisy_anterior_extreme(self) -> np.ndarray:
-        dist = np.linalg.norm(self.vector_to_noisy_anterior_extreme)
-        if dist == 0:
-            return np.zeros(3)
-        return self.vector_to_noisy_anterior_extreme / dist
-
-    @property
-    def distance_to_noisy_anterior_extreme(self) -> float:
-        return np.linalg.norm(self.vector_to_noisy_anterior_extreme)
-
-    @property
-    def vector_to_noisy_posterior_extreme(self) -> np.ndarray:
-        return self.noisy_posterior_extreme_position - self.tarsus_position
-
-    @property
-    def normalised_vector_to_noisy_posterior_extreme(self) -> np.ndarray:
-        dist = np.linalg.norm(self.vector_to_noisy_posterior_extreme)
-        if dist == 0:
-            return np.zeros(3)
-        return self.vector_to_noisy_posterior_extreme / dist
-
-    @property
-    def distance_to_noisy_posterior_extreme(self) -> float:
-        return np.linalg.norm(self.vector_to_noisy_posterior_extreme)
-    
+   
     def update_phase(
         self,
         dt: float,
@@ -178,44 +134,56 @@ class HexWalkerLeg:
     ) -> bool:
         old_phase = self.phase
         old_tarsus = self.tarsus_position.copy()
-        # full derivative: local omega plus all coupling signals
-        d_theta = self.omega_current + coupling_signal
-
-        # Euler step on the circle
-        self.phase = (self.phase + dt * d_theta) % (2 * np.pi)
-
-        # detect surface crossings
-        crossed_liftoff = (old_phase < 2 * np.pi and self.phase < old_phase
-                          and old_phase > np.pi)
-        crossed_touchdown = (old_phase < np.pi <= self.phase)
-
-        sends_rule2 = False
-
+        self._advance_phase(dt, coupling_signal)
+        crossed_liftoff, crossed_touchdown = self._detect_crossings(old_phase)
         if crossed_liftoff:
-            self._draw_noisy_anterior_extreme_position()
-            noise = np.random.normal(0, self.noise_level) if self.noise_level > 0 else 0.0
-            cycle_time = (2 * self.stride_amplitude / self.stance_step_size) * 0.02
-            self.omega_current = (2 * np.pi / cycle_time) + noise
-            self.liftoff_position_history.append(
-                (self.tarsus_position - self.workspace_centre).copy()
-            )
-
+            self._on_liftoff()
         if crossed_touchdown:
-            self._draw_noisy_posterior_extreme_position()
-            noise = np.random.normal(0, self.noise_level) if self.noise_level > 0 else 0.0
-            cycle_time = (2 * self.stride_amplitude / self.stance_step_size) * 0.02
-            self.omega_current = (2 * np.pi / cycle_time) + noise
-            self.landing_position_history.append(
-                (self.tarsus_position - self.workspace_centre).copy()
-            )
-            sends_rule2 = True
-
+            self._on_touchdown()
         self._tarsus_from_phase()
-        return sends_rule2
+        self._record_step(old_tarsus, crossed_liftoff or crossed_touchdown)
+        return crossed_touchdown
+
+    def _advance_phase(self, dt: float, coupling_signal: float) -> None:
+        #moves phase clock by one step : own rate + coupling pull and stored nudge
+        d_theta = self.omega_current + coupling_signal
+        self.phase = (self.phase + dt * d_theta + self.phase_kick) % (2 * np.pi)
+        self.phase_kick = 0.0
+
+    def _detect_crossings(self, old_phase: float) -> tuple:
+        #to report whether this tick crossed the lift-off or touchdown boundary
+        crossed_liftoff = self.phase < old_phase and old_phase > self.touchdown_phase
+        crossed_touchdown = old_phase < self.touchdown_phase <= self.phase
+        return crossed_liftoff, crossed_touchdown
+
+    def _on_liftoff(self) -> None:
+        self.noisy_anterior_extreme_position = self._noisy(self.anterior_extreme_position)
+        self._refresh_omega()
+        self.liftoff_position_history.append(
+            (self.noisy_posterior_extreme_position - self.workspace_centre).copy()
+        )
+
+    def _on_touchdown(self) -> None:
+        self.noisy_posterior_extreme_position = self._noisy(self.posterior_extreme_position)
+        self._refresh_omega()
+        self.landing_position_history.append(
+            (self.noisy_anterior_extreme_position - self.workspace_centre).copy()
+        )
+
+    def _refresh_omega(self) -> None:
+        #reset clock rate to its steady value + fresh timing noise
+        noise = np.random.normal(0, self.noise_level) if self.noise_level > 0 else 0.0
+        self.omega_current = self.base_omega + noise
+
+    def _record_step(self, old_tarsus: np.ndarray, crossed: bool) -> None:
+        if crossed:
+            self.last_step = np.zeros(3)
+        else:
+            self.last_step = self.tarsus_position - old_tarsus
     
     def _tarsus_from_phase(self) -> None: 
         if not self.ground_contact:
-            fraction = self.phase / np.pi 
+            fraction = self.phase / self.touchdown_phase
             self.tarsus_position = (
                 self.noisy_posterior_extreme_position 
                 + fraction * (
@@ -223,7 +191,7 @@ class HexWalkerLeg:
                 )
             )
         else:
-            fraction = (self.phase - np.pi) / np.pi 
+            fraction = (self.phase - self.touchdown_phase) / (2 * np.pi - self.touchdown_phase)
             self.tarsus_position = (
                 self.noisy_anterior_extreme_position
                 + fraction * (
@@ -231,27 +199,12 @@ class HexWalkerLeg:
                     - self.noisy_anterior_extreme_position
                 )
             )
-    def _draw_noisy_anterior_extreme_position(self) -> None:
+    def _noisy(self, position: np.ndarray) -> np.ndarray:
+        #return copy of target position shifted by random noise if the noise level is > 0
         if self.noise_level == 0.0:
-            self.noisy_anterior_extreme_position = self.anterior_extreme_position.copy()
-            return
-        noise = np.random.multivariate_normal(
-            mean=[0.0, 0.0],
-            cov=[[self.noise_level, 0.0], [0.0, self.noise_level]],
-        )
-        noise_offset = np.append(noise, 0.0)
-        self.noisy_anterior_extreme_position = self.anterior_extreme_position + noise_offset
-
-    def _draw_noisy_posterior_extreme_position(self) -> None: 
-        if self.noise_level == 0.0:
-                self.noisy_posterior_extreme_position = self.posterior_extreme_position.copy()
-                return
-        noise = np.random.multivariate_normal(
-            mean=[0.0, 0.0],
-            cov=[[self.noise_level, 0.0], [0.0, self.noise_level]],
-        )
-        noise_offset = np.append(noise, 0.0)
-        self.noisy_posterior_extreme_position = self.posterior_extreme_position + noise_offset
+            return position.copy()
+        noise = np.random.normal(0.0, self.noise_level, size=2)
+        return position + np.append(noise, 0.0)
 
     def get_geometry(self) -> 'LegGeometry':
         """Return current leg state as a value object."""

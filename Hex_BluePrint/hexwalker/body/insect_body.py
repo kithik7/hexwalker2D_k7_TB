@@ -1,30 +1,19 @@
 """
 insect_body.py
 
-Defines InsectBody: loads, cleans, and normalises a hexapod body outline 
-Supports any format including mat, svg, or image files 
-
-svg formats work only for outlines without legs
-
-Detects leg-attachment points automatically using outline curvature 
-No information known about walker and the simulation
+Defines InsectBody: loads, cleans, and normalises a hexapod body outline from a .mat file.
 """
 from pathlib import Path  
 import numpy as np 
 from scipy.io import loadmat 
-from scipy.spatial import ConvexHull
-from scipy.signal import find_peaks 
-from svgpathtools import svg2paths
-import cv2 
+
 
 class InsectBody: 
     def __init__(self, source_path: str) -> None: 
         self.source_path = Path(source_path)
         self._load_outline()
         self._remove_duplicates()
-        self._extract_outline_without_legs()
         self._normalise()
-        self._compute_curvature()
         self._correct_orientation()
         self._find_attachment_points()
 
@@ -35,10 +24,6 @@ class InsectBody:
         
         if self.source_path.suffix == '.mat':
             self._load_from_mat()
-        elif self.source_path.suffix == '.svg':
-            self._load_from_svg()
-        elif self.source_path.suffix in ('.jpg', '.png'):
-            self._load_from_image()
         else:
             raise ValueError(f'Unsupported format: {self.source_path.suffix}')
 
@@ -49,45 +34,11 @@ class InsectBody:
         data_key = [k for k in raw.keys() if not k.startswith('__')][0]
         self.outline = raw[data_key].astype(float)
         self.outline[:, 1] *= -1 #flip y axis in image ato correct for inversion
-
-    def _load_from_svg(self) -> None: 
-        NUM_SAMPLES = 500
-        paths, _ = svg2paths(self.source_path)
-        path = paths[0]
-    
-        points = []
-        for i in range(NUM_SAMPLES):
-            t = i / NUM_SAMPLES
-            pt = path.point(t)
-            points.append([pt.real, pt.imag])
-    
-        self.outline = np.array(points)
-
-    def _load_from_image(self) -> None:
-        image = cv2.imread(str(self.source_path), cv2.IMREAD_GRAYSCALE)
-        _, binary = cv2.threshold(image, 127, 255, cv2.THRESH_BINARY_INV)
-        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-        self.outline = contours[0].reshape(-1, 2).astype(float)
-        self.outline[:, 1] *= -1 #flip image to correct for inversion
-
         
     def _remove_duplicates(self) -> None:
         is_not_duplicate = np.any(self.outline[1:] != self.outline[:-1], axis=1)
         is_not_duplicate = np.append(True, is_not_duplicate)
         self.outline = self.outline[is_not_duplicate]
-
-    def _extract_outline_without_legs(self) -> None:
-        if self.source_path.suffix not in ('.jpg', '.png'):
-            return
-        hull = ConvexHull(self.outline)
-        edge_equations = hull.equations
-        points_homogeneous = np.column_stack([self.outline, np.ones(len(self.outline))])
-        distances_to_all_edges = points_homogeneous @ edge_equations.T
-        distance_to_hull = np.abs(distances_to_all_edges).min(axis=1)
-        body_size = self.outline[:, 0].max() - self.outline[:, 0].min()
-        threshold = 0.05 * body_size
-        self.outline = self.outline[distance_to_hull < threshold]
-
 
     def _normalise(self) -> None:
          """ centre outline and scale to fit """
@@ -101,13 +52,6 @@ class InsectBody:
          centred_outline[:,1] = (self.outline[:, 1] - (y_min + y_max) / 2)
          self.normalised_outline = centred_outline / scale 
 
-
-    def _compute_curvature(self) -> None: 
-        tangent_vectors = self.normalised_outline[2:] - self.normalised_outline[:-2]
-        theta_tangents = np.arctan2(tangent_vectors[:,1], tangent_vectors[:,0])
-        self.curvature = np.diff(theta_tangents)
-        # curvature array has reduced length due to subtraction, 
-        # find attachment points must use outline index i+2
 
     def _correct_orientation(self) -> None: 
         centroid_y = self.normalised_outline[:, 1].mean()

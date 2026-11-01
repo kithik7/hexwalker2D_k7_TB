@@ -2,7 +2,7 @@
 hex_simulation.py 
 
 HexSimulation is a class that contains the world, the visualisation and animation loop for the hexapod walker
-It managers all drawing and has public methods accesible by the user 
+It manages all drawing and has public methods accesible by the user 
 Has no information about HexWalkerLeg or computing parameters such as displacement
 """
 from pathlib import Path
@@ -12,8 +12,8 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Slider
 from matplotlib.patches import Ellipse
 from matplotlib.widgets import Button 
-from scipy.spatial import ConvexHull 
-import os 
+from matplotlib.colors import ListedColormap
+from scipy.spatial import ConvexHull
 from hexwalker.body.insect_body import InsectBody
 from hexwalker.core.hex_walker import HexWalker
 
@@ -42,23 +42,36 @@ class HexSimulation:
             dt=self.dt,
             body_scale=self.body_scale
         )
-        for i, leg in enumerate(self.walker.legs):
-            print(i, leg.leg_label, leg.origin[:2])
         #create figure and its axes 
-        self.fig, (self.ax, self.traj_ax) = plt.subplots(1, 2, figsize=(14,8),
-                                                         gridspec_kw={'width_ratios':[2,1]})
+        self.fig = plt.figure(figsize=(14, 8))
+        grid = self.fig.add_gridspec(2, 2, width_ratios=[1, 1], height_ratios=[1.3, 1])
+        self.ax = self.fig.add_subplot(grid[:, 0])
+        self.traj_ax = self.fig.add_subplot(grid[0, 1])
+        self.footfall_ax = self.fig.add_subplot(grid[1, 1])
         self.ax.set_xlim(-self.world_size / 2, self.world_size / 2)
         self.ax.set_ylim(-self.world_size / 2, self.world_size / 2)
         self.ax.set_aspect('equal')
         self.ax.set_facecolor('#f5f5f0')
         self.ax.grid(True, alpha= 0.2)
         self.ax.set_autoscale_on(False)
-
-        plt.subplots_adjust(bottom=0.33) #scale layout to fit parameter slides
+        self.ax.set_xlabel(f'world units (1 body length = {self.body_scale:g})', fontsize=8)
+        self.traj_ax.set_xlabel(f'world units (1 body length = {self.body_scale:g})', fontsize=8)
+        plt.subplots_adjust(bottom=0.33, top=0.97, hspace=0.3)
 
         #store x and y trajectories 
         self.trajectory_x = []
         self.trajectory_y = []
+
+        self.unwrapped_x = []
+        self.unwrapped_y = []
+        self.wrap_offset = np.zeros(2)
+        self.map_unwrapped = False
+
+        #history table for footfall
+        self.footfall_length = 100
+        self.footfall_buffer = np.zeros((11, self.footfall_length))
+        self.footfall_order = [0, 1, 2, 3, 4, 5] 
+        self.footfall_black_is_stance = True
 
         self._setup_simulation_painter()
         
@@ -167,34 +180,60 @@ class HexSimulation:
         self.minimap_line, = self.traj_ax.plot([], [], '-', color='#3B8BD4', linewidth=1.0, alpha=0.8)
         self.minimap_dot, = self.traj_ax.plot([], [], 'o', color='#e8000b', markersize=6)
 
-        #add parameter adjustment sliders 
-        slider_ax_coupling = plt.axes([0.2, 0.04, 0.6, 0.03])
-        self.coupling_slider = Slider(slider_ax_coupling, 'Coupling', 0.0, 1.0, valinit=0.3)
-        self.coupling_slider.on_changed(self._coupling_slider_callback)
+        #add footfall image 
+        #add footfall image 
+        self.footfall_image = self.footfall_ax.imshow(
+            self.footfall_buffer, aspect='auto', interpolation='nearest',
+            cmap=ListedColormap(['white', 'black']), vmin=0, vmax=1,
+            extent=(0, self.footfall_length, 10.5, -0.5))
+        self.footfall_ax.set_yticks(range(0, 11, 2))
+        self.footfall_ax.set_yticklabels(['L1', 'L2', 'L3', 'R1', 'R2', 'R3'], fontsize=8)
+        self.footfall_ax.set_xlabel('Time [frames]', fontsize=8)
+        self.footfall_ax.tick_params(axis='x', labelsize=8)
+        self.footfall_ax.spines[['top', 'right', 'left']].set_visible(False)
+        for k in range(6):
+            self.footfall_ax.axhspan(2 * k - 0.5, 2 * k + 0.5, facecolor='none', edgecolor='black', linewidth=0.8)
 
-        slider_ax_speed = plt.axes([0.2, 0.09, 0.6, 0.03]) #
+        #add parameter adjustment sliders 
+
+        slider_ax_speed = plt.axes([0.2, 0.09, 0.3, 0.03]) #
         self.speed_slider = Slider(slider_ax_speed, 'Speed', 0.005, 0.05, valinit=0.02)
         self.speed_slider.on_changed(self._speed_slider_callback)
 
-        slider_ax_noise = plt.axes([0.2, 0.14, 0.6, 0.03])
-        self.noise_slider = Slider(slider_ax_noise, 'Noise', 0.0, 0.02, valinit=0.0)
+        slider_ax_noise = plt.axes([0.2, 0.14, 0.3, 0.03])
+        self.noise_slider = Slider(slider_ax_noise, 'Noise', 0.0, 0.05, valinit=0.0, valfmt='%.3f', valstep=0.001)
         self.noise_slider.on_changed(self._noise_slider_callback)
 
-        slider_ax_curve = plt.axes([0.2, 0.19, 0.6, 0.03])
-        self.curve_slider = Slider(slider_ax_curve, 'Curve radius', 0.0, 0.3, valinit=0.0)
+        slider_ax_curve = plt.axes([0.2, 0.19, 0.3, 0.03])
+        self.curve_slider = Slider(slider_ax_curve, 'Curve radius', 0.0, 0.3, valinit=0.0, valfmt='%.3f', valstep=0.005)
         self.curve_slider.on_changed(self._curve_slider_callback)
 
-        slider_ax_zoom = plt.axes([0.2, 0.24, 0.6, 0.03])
-        self.zoom_slider = Slider(slider_ax_zoom, 'Zoom', 0.5, 5.0, valinit=1.0)
+        slider_ax_zoom = plt.axes([0.2, 0.24, 0.3, 0.03])
+        self.zoom_slider = Slider(slider_ax_zoom, 'Zoom', 0.5, 5.0, valinit=2.5)
         self.zoom_slider.on_changed(self._zoom_slider_callback) 
 
-        button_ax = plt.axes([0.82, 0.29, 0.13, 0.04])
+        self.coupling_sliders = []
+        coupling_specs = [
+            ("K1", "K1 behind", 0.0, 1.0),
+            ("K2", "K2 impulse", 0.0, 0.2),
+            ("K3", "K3 ahead", 0.0, 1.0),
+            ("K4", "K4 contralateral", 0.0, 1.0),
+        ]
+        for row, (name, label, low, high) in enumerate(coupling_specs):
+            slider_ax = plt.axes([0.68, 0.24 - 0.05 * row, 0.22, 0.03])
+            slider = Slider(slider_ax, label, low, high, valinit=getattr(self.walker, name), valfmt='%.2f', valstep=0.01 )
+            slider.on_changed(self._make_coupling_callback(name))
+            self.coupling_sliders.append(slider)
+        defaults_ax = plt.axes([0.35, 0.03, 0.15, 0.04])
+        self.defaults_button = Button(defaults_ax, 'Default coupling')
+        self.defaults_button.on_clicked(self._apply_default_coupling)
+        map_button_ax = plt.axes([0.52, 0.03, 0.14, 0.04])
+        self.map_button = Button(map_button_ax, 'Map: wrapped')
+        self.map_button.on_clicked(self._toggle_map)
+        button_ax = plt.axes([0.2, 0.03, 0.13, 0.04])
         self.ellipse_toggle = Button(button_ax, 'Ellipses: OFF')
         self.ellipse_toggle.on_clicked(self._toggle_ellipses)
         self.show_ellipses = False
-
-    def _coupling_slider_callback(self, val: float) -> None:
-        self.walker.set_coupling_strength(val) #for rule 3 : how much legs can hold stance 
 
     def _speed_slider_callback(self, val: float) -> None:
         self.walker.set_speed(val)
@@ -214,6 +253,31 @@ class HexSimulation:
         self.ax.set_xlim(bx - half, bx + half)
         self.ax.set_ylim(by - half, by + half)
 
+    def _make_coupling_callback(self, name: str):
+        def callback(val: float) -> None:
+            self.walker.set_coupling(name, val)
+        return callback
+
+    def _apply_default_coupling(self, event) -> None:
+        for slider, value in zip(self.coupling_sliders, self.walker.default_coupling.values()):
+            slider.set_val(value)
+
+    def _toggle_map(self, event) -> None:
+        self.map_unwrapped = not self.map_unwrapped
+        self.map_button.label.set_text('Map: unwrapped' if self.map_unwrapped else 'Map: wrapped')
+        if not self.map_unwrapped:
+            half = self.world_size / 2
+            self.traj_ax.set_xlim(-half, half)
+            self.traj_ax.set_ylim(-half, half)
+
+    def _fit_map_to_path(self) -> None:
+        x_low, x_high = min(self.unwrapped_x), max(self.unwrapped_x)
+        y_low, y_high = min(self.unwrapped_y), max(self.unwrapped_y)
+        half_span = max(x_high - x_low, y_high - y_low, 10.0) / 2 * 1.1
+        centre_x, centre_y = (x_low + x_high) / 2, (y_low + y_high) / 2
+        self.traj_ax.set_xlim(centre_x - half_span, centre_x + half_span)
+        self.traj_ax.set_ylim(centre_y - half_span, centre_y + half_span)
+
     def _toggle_ellipses(self, event) -> None:
         """Toggle aep/pep distribution visibility"""
         self.show_ellipses = not self.show_ellipses 
@@ -230,6 +294,15 @@ class HexSimulation:
         
         # all leg geometry in the same loop
         geometries = self.walker.get_world_geometry()
+
+        #update footfall each frame 
+        self.footfall_buffer = np.roll(self.footfall_buffer, -1, axis=1)
+        self.footfall_buffer[0::2, -1] = [geometries[i].ground_contact == self.footfall_black_is_stance for i in self.footfall_order]
+        self.footfall_image.set_extent((frame - self.footfall_length + 1, frame + 1, 10.5, -0.5))
+        self.footfall_ax.set_xlim(max(0, frame - self.footfall_length + 1), max(self.footfall_length, frame + 1))
+        self.footfall_image.set_data(self.footfall_buffer)
+
+    
         for i, geom in enumerate(geometries):
             colour = '#e8000b' if geom.ground_contact else '#00e64d'
             self.tarsus_markers[i].set_markerfacecolor(colour)
@@ -252,7 +325,7 @@ class HexSimulation:
                 aep_arr = np.array([
                     self.walker.legs[i].frame.to_world(
                         np.append(p[:2] + self.walker.legs[i].workspace_centre[:2], 0.0))[:2]
-                    for p in geom.landing_position_history
+                    for p in geom.landing_position_history[-20:]
                 ])
                 self.aep_scatter[i].set_data(aep_arr[:, 0], aep_arr[:, 1])
     
@@ -274,7 +347,7 @@ class HexSimulation:
                 pep_arr = np.array([
                     self.walker.legs[i].frame.to_world(
                         np.append(p[:2] + self.walker.legs[i].workspace_centre[:2], 0.0))[:2]
-                    for p in geom.liftoff_position_history
+                    for p in geom.liftoff_position_history[-20:]
                 ])
                 self.pep_scatter[i].set_data(pep_arr[:, 0],pep_arr[:, 1])
 
@@ -323,11 +396,14 @@ class HexSimulation:
         )
         # store position before wrapping
         pre_toroid_wrapping_position = self.walker.body_position[:2].copy()
+        self.unwrapped_x.append(pre_toroid_wrapping_position[0] + self.wrap_offset[0])
+        self.unwrapped_y.append(pre_toroid_wrapping_position[1] + self.wrap_offset[1])
 
         # toroidal wrapping
         half = self.world_size / 2
         self.walker.body_position[0] = (self.walker.body_position[0] + half) % self.world_size - half
         self.walker.body_position[1] = (self.walker.body_position[1] + half) % self.world_size - half
+        self.wrap_offset += pre_toroid_wrapping_position - self.walker.body_position[:2]
 
         self.walker.body_frame.set_transform(
             self.walker.body_position,
@@ -345,15 +421,21 @@ class HexSimulation:
             abs(self.walker.body_position[0] - pre_toroid_wrapping_position[0]) > half or
             abs(self.walker.body_position[1] - pre_toroid_wrapping_position[1]) > half
         )
+        self.trajectory_x.append(body_pos[0])
+        self.trajectory_y.append(body_pos[1])
+
         if wrap_occured:
             self.trajectory_x.append(np.nan)
             self.trajectory_y.append(np.nan)
-        self.trajectory_x.append(body_pos[0])
-        self.trajectory_y.append(body_pos[1])
         self.trajectory_line.set_data(self.trajectory_x, self.trajectory_y)
-        self.minimap_line.set_data(self.trajectory_x, self.trajectory_y)
-        self.minimap_dot.set_data([self.walker.body_position[0]], [self.walker.body_position[1]])
-            
+        if self.map_unwrapped:
+            self.minimap_line.set_data(self.unwrapped_x, self.unwrapped_y)
+            self.minimap_dot.set_data([self.unwrapped_x[-1]], [self.unwrapped_y[-1]])
+            self._fit_map_to_path()
+        else:
+            self.minimap_line.set_data(self.trajectory_x, self.trajectory_y)
+            self.minimap_dot.set_data([self.walker.body_position[0]], [self.walker.body_position[1]])
+
         return (self.tarsus_markers + self.leg_segments +
                 self.platonic_aep_markers + self.platonic_pep_markers +
                 self.noisy_aep_markers + self.noisy_pep_markers +

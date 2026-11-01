@@ -8,9 +8,7 @@ No information known about the simulation or leg geometry.
 """
 
 import numpy as np 
-from scipy.spatial import ConvexHull  
 from hexwalker.body.insect_body import InsectBody
-from hexwalker.core.hex_walker_leg import HexWalkerLeg
 from hexwalker.core.coordinate_mapper import CoordinateMapper
 from hexwalker.core.hex_walker_leg import HexWalkerLeg, LegGeometry
 
@@ -35,12 +33,10 @@ class HexWalker:
         self.world_frame = CoordinateMapper(parent=None)
         self.body_frame = CoordinateMapper(parent=self.world_frame)
         self.body_frame.set_transform(self.body_position, angle=self.body_orientation, scale=self.body_scale) 
-        print("calling set_transform with scale:", self.body_scale)
  
         self._attach_legs()
-        for leg in self.legs:
-            print(leg.leg_label, leg.origin)
         self._set_tripod_pattern()
+
         #ipsilateral_posterior_neighbour_connections 
         self.posterior_neighbours = {
             0: 1, #L1 -> L2 
@@ -71,11 +67,24 @@ class HexWalker:
         }
 
         #K Coupling strength values 
-        self.K1 = 0.3
-        self.K2 = 0.1 
-        self.K3 = 0.3
-        self.K4 = 0.6
+        self.default_coupling = {"K1": 0.3, "K2": 0.1, "K3": 0.3, "K4": 0.6}
+        self.K1 = 0.0
+        self.K2 = 0.0
+        self.K3 = 0.0
+        self.K4 = 0.0        
 
+        #preferred phase offsets between neighbouring legs (radians around the lap)
+        self.offset_follows_speed = True #setting this to false gives fixed offset back 
+        self.contralateral_offset = np.pi
+
+    @property
+    def ipsilateral_offset(self) -> float:
+        """How far a leg's clock runs ahead of the leg in front of it. With speed-following on, this is
+        the swing share of the cycle (up to half a cycle, a tripod), so each leg lifts as the one behind it lands."""
+        if self.offset_follows_speed:
+            return min(self.legs[0].touchdown_phase, np.pi)
+        return 2 * np.pi / 3
+    
     def _attach_legs(self) -> None: 
         """Create six HexWalkerLeg Objects from InsectBody attachment points"""
         attachment_points = self.insect_body.attachment_points 
@@ -83,9 +92,6 @@ class HexWalker:
         left_points = sorted([p for p in attachment_points if p[0] < 0], key=lambda p: -p[1])
         right_points = sorted([p for p in attachment_points if p[0] > 0], key=lambda p: -p[1])
         attachment_points = np.array(left_points + right_points)
-        print("sorted attachment points:")
-        for i, p in enumerate(attachment_points):
-            print(f"  {i}: {p}")
         
         workspace_centres = self._calculate_workspace_centres(attachment_points)
         leg_labels = ['L1', 'L2', 'L3', 'R1', 'R2', 'R3']
@@ -103,8 +109,7 @@ class HexWalker:
             self.legs.append(leg)
             leg.frame.parent = self.body_frame
             leg.frame.set_transform(np.append(attachment_points[i], 0.0), scale=1.0)
-        self.ipsilateral_rule3_strength = 0.3
-        self.contralateral_coupling_strength = 0.3
+       
 
     def _calculate_workspace_centres(self, attachment_points: np.ndarray) -> list:
         body_edge_to_workspace_centre_distance = 0.15
@@ -119,19 +124,22 @@ class HexWalker:
         """Set alternating tripod starting pattern. Legs 0, 2, 4 start in swing."""
         tripod_A = [0, 2, 4] #swing: phase in 0, pi 
         tripod_B = [1, 3, 5] #stance: phase in pi, 2pi
-        for i, idx in enumerate(tripod_A): 
-            self.legs[idx].phase = i * (2 * np.pi / 3)
-        for i, idx in enumerate(tripod_B):
-            self.legs[idx].phase = np.pi + i * (2 * np.pi / 3)
+        for idx in tripod_A: 
+            self.legs[idx].phase = self.legs[idx].touchdown_phase / 2
+        for idx in tripod_B:
+            self.legs[idx].phase = self.legs[idx].touchdown_phase / 2 + np.pi
         for leg in self.legs: 
             leg._tarsus_from_phase()
 
     def update(self, dt: float) -> None:
-        # pass 1: read only (Haskell-like error free updating)
-        # take a frozen snapshot and compute all six derivatives
-        phase_snapshot = [leg.phase for leg in self.legs]
-        
+        coupling_signals = self._compute_coupling_signals()
+        touched_down = [leg.update_phase(dt, coupling_signals[i]) for i, leg in enumerate(self.legs)]
+        self._apply_nudges(touched_down)
+        self._move_body()
 
+    def _compute_coupling_signals(self) -> list:
+        """Read all six phases once as a snapshot, then compute each legs pull from its neighbours."""
+        phase_snapshot = [leg.phase for leg in self.legs]
         coupling_signals = []
         for i in range(6):
             signal = 0.0
@@ -139,42 +147,34 @@ class HexWalker:
             post_idx = self.posterior_neighbours[i]
             if post_idx is not None:
                 signal += self.K1 * np.sin(
-                    phase_snapshot[post_idx] - phase_snapshot[i] - 2 * np.pi / 3
+                    phase_snapshot[post_idx] - phase_snapshot[i] - self.ipsilateral_offset
                 )
 
             ant_idx = self.anterior_neighbours[i]
             if ant_idx is not None:
                 signal += self.K3 * np.sin(
-                    phase_snapshot[ant_idx] - phase_snapshot[i] + 2 * np.pi / 3
+                    phase_snapshot[ant_idx] - phase_snapshot[i] + self.ipsilateral_offset
                 )
 
             contra_idx = self.contralateral_neighbours[i]
             signal += self.K4 * np.sin(
-                phase_snapshot[contra_idx] - phase_snapshot[i] - np.pi
+                phase_snapshot[contra_idx] - phase_snapshot[i] - self.contralateral_offset
             )
 
             coupling_signals.append(signal)
+        return coupling_signals
 
-        # pass 2: write only
-        # update all legs from the signals computed in pass one
-        rule2_fires = []
-        for i, leg in enumerate(self.legs):
-            fired = leg.update_phase(dt, coupling_signals[i])
-            rule2_fires.append(fired)
-
-        # Rule 2 at phase crossings: impulsation goes off only after all phase updates
-        for i, fired in enumerate(rule2_fires):
+    def _apply_nudges(self, touched_down: list) -> None:
+        """A leg that just touched down nudges the leg in front of it fwd inits own cycle."""
+        for i, fired in enumerate(touched_down):
             if fired:
                 ant_idx = self.anterior_neighbours[i]
                 if ant_idx is not None:
-                    self.legs[ant_idx].phase = (
-                        self.legs[ant_idx].phase + self.K2
-                    ) % (2 * np.pi)
+                    self.legs[ant_idx].phase_kick += self.K2
 
-        #now displacement is computed from what really moved 
+    def _move_body(self) -> None:
+        """move body position and orientation based on grounded legs"""
         translation, rotation = self._calculate_displacement()
-        
-        # body update
         self.body_position[0] += translation[0]
         self.body_position[1] += translation[1]
         self.body_orientation += rotation
@@ -183,10 +183,11 @@ class HexWalker:
             angle=self.body_orientation,
             scale=self.body_scale
         )
-        
+
+
     def _calculate_displacement(self) -> tuple:
         """Calculate body displacement using grounded leg pair."""
-        grounded_legs = [leg for leg in self.legs if leg.ground_contact]
+        grounded_legs = [leg for leg in self.legs if leg.ground_contact and np.linalg.norm(leg.last_step) > 0]
         if len(grounded_legs) < 2:
             return np.zeros(2), 0.0
 
@@ -197,8 +198,8 @@ class HexWalker:
                 for j in range(i + 1, len(grounded_legs))]
 
         for leg_a, leg_b in pairs:
-            p1 = leg_a.origin + leg_a.normalised_vector_to_noisy_posterior_extreme * -1 * leg_a.stance_step_size
-            p2 = leg_b.origin + leg_b.normalised_vector_to_noisy_posterior_extreme * -1 * leg_b.stance_step_size
+            p1 = leg_a.origin - leg_a.last_step
+            p2 = leg_b.origin - leg_b.last_step
 
             v_original = leg_a.origin - leg_b.origin
             norm_orig = np.linalg.norm(v_original)
@@ -221,10 +222,10 @@ class HexWalker:
             com = np.zeros(3)
             t1 = (np.array([[np.cos(angle), -np.sin(angle), 0],
                          [np.sin(angle),  np.cos(angle), 0],
-                         [0, 0, 1]]) @ (com - leg_a.origin)) + leg_a.origin + leg_a.normalised_vector_to_noisy_posterior_extreme * -1 * leg_a.stance_step_size
+                         [0, 0, 1]]) @ (com - leg_a.origin)) + leg_a.origin - leg_a.last_step
             t2 = (np.array([[np.cos(angle), -np.sin(angle), 0],
                          [np.sin(angle),  np.cos(angle), 0],
-                         [0, 0, 1]]) @ (com - leg_b.origin)) + leg_b.origin + leg_b.normalised_vector_to_noisy_posterior_extreme * -1 * leg_b.stance_step_size
+                         [0, 0, 1]]) @ (com - leg_b.origin)) + leg_b.origin - leg_b.last_step
 
             all_translations.append(t1[:2])
             all_translations.append(t2[:2])
@@ -264,10 +265,6 @@ class HexWalker:
         result = []
         for leg in self.legs:
             g = leg.get_geometry()
-            # print("noisy_anterior local:", g.noisy_anterior_extreme)
-            # print("noisy_anterior world:", leg.frame.to_world(g.noisy_anterior_extreme))
-            # print("anterior local:", g.anterior_extreme)
-            # print("anterior world:", leg.frame.to_world(g.anterior_extreme))
             result.append(LegGeometry(
                 leg_id=g.leg_id,
                 leg_label=g.leg_label,
@@ -303,16 +300,14 @@ class HexWalker:
             leg.stride_orientation = CURVE_FACTORS[i] * curve_radius
             leg._calculate_stride_endpoints() #to recalculate AEP PEP based on new orientation
 
-    def set_coupling_strength(self, strength: float) -> None:
-        self.K1 = strength
-        self.K3 = strength 
-        self.K4 = strength #contralateral
+    def set_coupling(self, name: str, value: float) -> None:
+        if name not in ("K1", "K2", "K3", "K4"):
+            raise ValueError(f"Unknown coupling: {name}")
+        setattr(self, name, value)
 
     def set_speed(self, speed: float) -> None:
         for leg in self.legs:
-            leg.stance_step_size = speed
-            cycle_time = (2 * leg.stride_amplitude / speed) * 0.02
-            leg.omega_current = (2 * np.pi) / cycle_time
+            leg.set_stance_step(speed)
             #only stance step changes with speed 
 
 
