@@ -71,12 +71,9 @@ class HexSimulation:
         self.footfall_length = 100
         self.footfall_buffer = np.zeros((11, self.footfall_length))
         self.footfall_order = [0, 1, 2, 3, 4, 5] 
-        self.footfall_black_is_stance = True
+        self.footfall_black_is_stance = False
 
-        self._setup_simulation_painter()
-        
-        
-        
+        self._setup_simulation_painter()       
 
     def _setup_simulation_painter(self) -> None:
         """Create all matplotlib artist objects for the simulation"""
