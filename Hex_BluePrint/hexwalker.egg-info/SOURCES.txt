@@ -12,7 +12,3 @@ hexwalker/core/hex_walker.py
 hexwalker/core/hex_walker_leg.py
 hexwalker/simulation/__init__.py
 hexwalker/simulation/hex_simulation.py
-hexwalker/tests/__init__.py
-hexwalker/tests/test_hex_walker.py
-hexwalker/tests/test_hex_walker_leg.py
-hexwalker/tests/test_insect_body.py
