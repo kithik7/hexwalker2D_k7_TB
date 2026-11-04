@@ -20,7 +20,8 @@ class HexWalker:
             body_position: np.ndarray,
             body_orientation: float, 
             dt: float, 
-            body_scale: float = 6.0
+            body_scale: float = 6.0,
+            random_start_phases: bool = True,
     ) -> None: 
         self.walker_id = walker_id 
         self.insect_body = insect_body
@@ -35,8 +36,13 @@ class HexWalker:
         self.body_frame.set_transform(self.body_position, angle=self.body_orientation, scale=self.body_scale) 
  
         self._attach_legs()
-        self._set_tripod_pattern()
-
+        #self._set_tripod_pattern()
+        self.random_start_phases = random_start_phases
+        if self.random_start_phases: 
+            self._set_random_phases()
+        else:
+            self._set_tripod_pattern()
+        
         #ipsilateral_posterior_neighbour_connections 
         self.posterior_neighbours = {
             0: 1, #L1 -> L2 
@@ -74,9 +80,10 @@ class HexWalker:
         self.K4 = 0.0        
 
         #preferred phase offsets between neighbouring legs (radians around the lap)
-        self.offset_follows_speed = True #setting this to false gives fixed offset back 
+        self.offset_follows_speed = False #setting this to false gives fixed offset back 
         self.contralateral_offset = np.pi
 
+       
     @property
     def ipsilateral_offset(self) -> float:
         """How far a leg's clock runs ahead of the leg in front of it. With speed-following on, this is
@@ -129,6 +136,13 @@ class HexWalker:
         for idx in tripod_B:
             self.legs[idx].phase = self.legs[idx].touchdown_phase / 2 + np.pi
         for leg in self.legs: 
+            leg._tarsus_from_phase()
+
+    #set a random phase draw for each leg at t=0 to test 
+
+    def _set_random_phases(self) -> None:
+        for leg in self.legs:
+            leg.phase = np.random.uniform(0.0, 2 * np.pi)
             leg._tarsus_from_phase()
 
     def update(self, dt: float) -> None:

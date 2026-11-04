@@ -1,5 +1,6 @@
 """
 phase refactor must have the same values with noise at 0
+applies default couplings, sets tripod start and runs it to 1000 ticks numerically 
 """
 from pathlib import Path
 import numpy as np
@@ -8,7 +9,7 @@ from hexwalker.core.hex_walker import HexWalker
 
 mat = Path(__file__).parent / "hexwalker" / "body" / "flySilhouette.mat"
 body = InsectBody(str(mat))
-walker = HexWalker(1, body, np.array([0.0, 0.0, 0.0]), 0.0, 0.02, 9.0)
+walker = HexWalker(1, body, np.array([0.0, 0.0, 0.0]), 0.0, 0.02, 9.0, random_start_phases=False)
 for name, value in walker.default_coupling.items():
     walker.set_coupling(name, value)
 for _ in range(1000):
