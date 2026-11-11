@@ -3,7 +3,7 @@ hex_simulation.py
 
 HexSimulation is a class that contains the world, the visualisation and animation loop for the hexapod walker
 It manages all drawing and has public methods accesible by the user 
-Has no information about HexWalkerLeg or computing parameters such as displacement
+Has no information about the legs or computing parameters such as displacement
 """
 from pathlib import Path
 import numpy as np 
@@ -16,6 +16,9 @@ from matplotlib.colors import ListedColormap
 from scipy.spatial import ConvexHull
 from hexwalker.body.insect_body import InsectBody
 from hexwalker.core.hex_walker import HexWalker
+from matplotlib.widgets import TextBox
+from hexwalker.analysis.recorder import Recorder
+from hexwalker.analysis.run import RUNS_DIR, free_path
 
 class HexSimulation: 
     def __init__(
@@ -45,6 +48,8 @@ class HexSimulation:
         )
         self.baseline_noise = 0.005
         self.walker.set_noise_level(self.baseline_noise)
+        self.recorder = Recorder(self.walker, seed=None)
+        self.recorder.record()
         #create figure and its axes 
         self.fig = plt.figure(figsize=(14, 8))
         grid = self.fig.add_gridspec(2, 2, width_ratios=[1, 1], height_ratios=[1.3, 1])
@@ -59,7 +64,7 @@ class HexSimulation:
         self.ax.set_autoscale_on(False)
         self.ax.set_xlabel(f'world units (1 body length = {self.body_scale:g})', fontsize=8)
         self.traj_ax.set_xlabel(f'world units (1 body length = {self.body_scale:g})', fontsize=8)
-        plt.subplots_adjust(bottom=0.33, top=0.97, hspace=0.3)
+        plt.subplots_adjust(bottom=0.33, top=0.91, hspace=0.3)
 
         #store x and y trajectories 
         self.trajectory_x = []
@@ -219,6 +224,7 @@ class HexSimulation:
             ("K3", "K3 ahead", 0.0, 1.0),
             ("K4", "K4 contralateral", 0.0, 1.0),
         ]
+
         for row, (name, label, low, high) in enumerate(coupling_specs):
             slider_ax = plt.axes([0.68, 0.24 - 0.05 * row, 0.22, 0.03])
             slider = Slider(slider_ax, label, low, high, valinit=getattr(self.walker.coupling, name), valfmt='%.2f', valstep=0.01 )
@@ -235,6 +241,21 @@ class HexSimulation:
         self.ellipse_toggle.on_clicked(self._toggle_ellipses)
         self.show_ellipses = False
 
+        #saving buttons 
+        name_ax = plt.axes([0.13, 0.94, 0.15, 0.04])
+        self.run_name_box = TextBox(name_ax, '', initial='Run name')
+        save_ax = plt.axes([0.29, 0.94, 0.08, 0.04])
+        self.save_button = Button(save_ax, 'Save run')
+        self.save_button.on_clicked(self._save_run)
+
+    def _save_run(self, event) -> None:
+        name = self.run_name_box.text.strip() or "unnamed"
+        RUNS_DIR.mkdir(exist_ok=True)
+        path = free_path(name)
+        self.recorder.save(path)
+        self.recorder.save_csv(path)
+        print("saved", len(self.recorder.ticks), "ticks to", path.name)
+    
     def _speed_slider_callback(self, val: float) -> None:
         self.walker.set_speed(val)
 
@@ -286,10 +307,12 @@ class HexSimulation:
         for e in self.aep_ellipses + self.pep_ellipses:
             e.set_visible(self.show_ellipses)   
 
+
     def animate(self, frame: int) -> list:
         """Update all visual elements for one timestep dt."""
 
         self.walker.update(self.dt)
+        self.recorder.record()
         body_pos = self.walker.body_position.copy()
         
         # all leg geometry in the same loop

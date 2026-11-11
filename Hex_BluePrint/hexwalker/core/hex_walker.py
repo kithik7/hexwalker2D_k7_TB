@@ -1,7 +1,7 @@
 """
 hex_walker.py 
 
-HexWalker: Receives an InsectBody object and creates six HexWalkerLeg objects 
+HexWalker: Receives an InsectBody object and creates six leg objects 
 from the attachment points. It stores body_position and body_orientation 
 It gets tarsus positions, gets support polygon and calculates displacement in its update function
 No information known about the simulation or leg geometry.
@@ -10,7 +10,8 @@ No information known about the simulation or leg geometry.
 import numpy as np 
 from hexwalker.body.insect_body import InsectBody
 from hexwalker.core.coordinate_mapper import CoordinateMapper
-from hexwalker.legs.phase_leg import PhaseLeg, LegGeometry
+from hexwalker.legs.leg import LegGeometry
+from hexwalker.legs.phase_leg import PhaseLeg
 from hexwalker.interleg.phase_coupling import PhaseCoupling
 
 class HexWalker: 
@@ -52,7 +53,7 @@ class HexWalker:
         return self.coupling.default_coupling
     
     def _attach_legs(self) -> None: 
-        """Create six HexWalkerLeg Objects from InsectBody attachment points"""
+        """Create six Leg Objects from InsectBody attachment points"""
         attachment_points = self.insect_body.attachment_points 
         # sort into left and right, then front to back
         left_points = sorted([p for p in attachment_points if p[0] < 0], key=lambda p: -p[1])
