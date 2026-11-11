@@ -218,7 +218,7 @@ class HexSimulation:
         ]
         for row, (name, label, low, high) in enumerate(coupling_specs):
             slider_ax = plt.axes([0.68, 0.24 - 0.05 * row, 0.22, 0.03])
-            slider = Slider(slider_ax, label, low, high, valinit=getattr(self.walker, name), valfmt='%.2f', valstep=0.01 )
+            slider = Slider(slider_ax, label, low, high, valinit=getattr(self.walker.coupling, name), valfmt='%.2f', valstep=0.01 )
             slider.on_changed(self._make_coupling_callback(name))
             self.coupling_sliders.append(slider)
         defaults_ax = plt.axes([0.35, 0.03, 0.15, 0.04])
