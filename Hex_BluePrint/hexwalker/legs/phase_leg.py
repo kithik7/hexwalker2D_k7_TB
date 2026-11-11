@@ -1,5 +1,5 @@
 """
-hex_walker_leg.py 
+phase_leg.py 
 
 Defines a single leg of a six legged walking agent. 
 Each leg maintains its own stepping state, position, and geometry.
@@ -27,7 +27,7 @@ class LegGeometry:
     workspace_radius: float
     origin: np.ndarray
 
-class HexWalkerLeg:
+class PhaseLeg:
 
     def __init__(
         self, 

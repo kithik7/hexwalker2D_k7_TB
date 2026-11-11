@@ -10,8 +10,8 @@ No information known about the simulation or leg geometry.
 import numpy as np 
 from hexwalker.body.insect_body import InsectBody
 from hexwalker.core.coordinate_mapper import CoordinateMapper
-from hexwalker.core.hex_walker_leg import HexWalkerLeg, LegGeometry
-from hexwalker.core.phase_coupling import PhaseCoupling
+from hexwalker.legs.phase_leg import PhaseLeg, LegGeometry
+from hexwalker.interleg.phase_coupling import PhaseCoupling
 
 class HexWalker: 
     def __init__(
@@ -64,7 +64,7 @@ class HexWalker:
 
         for i in range(6): 
             origin = np.append(attachment_points[i], 0.0)
-            leg = HexWalkerLeg(
+            leg = PhaseLeg(
                 leg_id=i+1,
                 leg_label=leg_labels[i],
                 origin=origin,
