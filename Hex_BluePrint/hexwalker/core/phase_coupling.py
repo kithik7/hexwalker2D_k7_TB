@@ -47,7 +47,7 @@ class PhaseCoupling:
         self.K4 = 0.0        
 
         #preferred phase offsets between neighbouring legs (radians around the lap)
-        self.offset_follows_speed = False #setting this to false gives fixed offset back 
+        self.offset_follows_speed = True #setting this to false gives fixed offset back 
         self.contralateral_offset = np.pi
 
        

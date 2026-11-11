@@ -40,8 +40,11 @@ class HexSimulation:
             body_position=np.array([0.0, 0.0, 0.0]), 
             body_orientation=0.0, 
             dt=self.dt,
-            body_scale=self.body_scale
+            body_scale=self.body_scale,
+            random_start_phases=False
         )
+        self.baseline_noise = 0.005
+        self.walker.set_noise_level(self.baseline_noise)
         #create figure and its axes 
         self.fig = plt.figure(figsize=(14, 8))
         grid = self.fig.add_gridspec(2, 2, width_ratios=[1, 1], height_ratios=[1.3, 1])
@@ -198,7 +201,7 @@ class HexSimulation:
         self.speed_slider.on_changed(self._speed_slider_callback)
 
         slider_ax_noise = plt.axes([0.2, 0.14, 0.3, 0.03])
-        self.noise_slider = Slider(slider_ax_noise, 'Noise', 0.0, 0.05, valinit=0.0, valfmt='%.3f', valstep=0.001)
+        self.noise_slider = Slider(slider_ax_noise, 'Noise', 0.0, 0.05, valinit=self.baseline_noise, valfmt='%.3f', valstep=0.001)
         self.noise_slider.on_changed(self._noise_slider_callback)
 
         slider_ax_curve = plt.axes([0.2, 0.19, 0.3, 0.03])
