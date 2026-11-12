@@ -60,7 +60,6 @@ class PhaseCoupling:
         return signals
 
     def compute_nudges(self, touched_down: list) -> tuple:
-        #Nudge each leg gets next tick: K2 per touchdown of the leg behind.
         nudges = [0.0] * len(touched_down)
         for i, landed in enumerate(touched_down):
             front = ANTERIOR[i]
@@ -77,7 +76,7 @@ class PhaseCoupling:
         return {"K1": self.K1, "K2": self.K2, "K3": self.K3, "K4": self.K4}
 
     def step(self, dt: float) -> None:
-        # One tick: signals and last tick's nudges, then the legs move.
+        # One tick comprises signals, last ticks nudges and then legs are moved
         signals = self.compute_coupling_signals()
         touched_down = [
             leg.update_phase(dt, signal, nudge)

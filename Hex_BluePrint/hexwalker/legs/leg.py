@@ -62,7 +62,7 @@ class Leg(ABC):
     @property
     @abstractmethod
     def ground_contact(self) -> bool:
-        # True when the foot is on the ground 
+        """ True when the foot is on the ground """
 
     @property
     def stretch_progress(self) -> float:
@@ -74,7 +74,7 @@ class Leg(ABC):
 
     @abstractmethod
     def set_stance_step(self, new_step: float) -> None:
-
+        """"""
     def place_at_phase(self, phase: float) -> None:
         self.phase = phase
         self._tarsus_from_phase()
@@ -181,14 +181,14 @@ class Leg(ABC):
         self.tarsus_position = start + fraction * (end - start)
 
     def _noisy(self, position: np.ndarray) -> np.ndarray:
-        """Copy of a target shifted by noise (SD = noise_level)."""
+        # (SD = noise_level)
         if self.noise_level == 0.0:
             return position.copy()
         noise = np.random.normal(0.0, self.noise_level, size=2)
         return position + np.append(noise, 0.0)
 
     def get_geometry(self) -> LegGeometry:
-        """Return current leg state as a value object."""
+        #value object is returned
         return LegGeometry(
             leg_id=self.leg_id,
             leg_label=self.leg_label,
