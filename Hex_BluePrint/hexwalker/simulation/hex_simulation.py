@@ -5,6 +5,7 @@ HexSimulation is a class that contains the world, the visualisation and animatio
 It manages all drawing and has public methods accesible by the user 
 Has no information about the legs or computing parameters such as displacement
 """
+from matplotlib.widgets import RadioButtons, TextBox
 from pathlib import Path
 import numpy as np 
 import matplotlib.pyplot as plt 
@@ -16,9 +17,9 @@ from matplotlib.colors import ListedColormap
 from scipy.spatial import ConvexHull
 from hexwalker.body.insect_body import InsectBody
 from hexwalker.core.hex_walker import HexWalker
-from matplotlib.widgets import TextBox
 from hexwalker.analysis.recorder import Recorder
 from hexwalker.analysis.run import RUNS_DIR, free_path
+from hexwalker.modes import MODES
 
 class HexSimulation: 
     def __init__(
@@ -26,7 +27,8 @@ class HexSimulation:
             world_size: float = 20, 
             dt: float =0.05, 
             body_scale: float =8.0,
-            source_path: str = None,         
+            source_path: str = None,
+            mode: str = "phase",         
     ) -> None: 
         self.world_size = world_size
         self.dt = dt
@@ -37,19 +39,11 @@ class HexSimulation:
             source_path = str(Path(__file__).parent.parent / 'body' / 'flySilhouette.mat')
 
         self.insect_body = InsectBody(source_path)
-        self.walker = HexWalker(
-            walker_id=1,
-            insect_body=self.insect_body,
-            body_position=np.array([0.0, 0.0, 0.0]), 
-            body_orientation=0.0, 
-            dt=self.dt,
-            body_scale=self.body_scale,
-            random_start_phases=False
-        )
         self.baseline_noise = 0.005
-        self.walker.set_noise_level(self.baseline_noise)
-        self.recorder = Recorder(self.walker, seed=None)
-        self.recorder.record()
+        self.walker = None
+        self.recorder = None
+        self.paused = True
+        self.tick_count = 0
         #create figure and its axes 
         self.fig = plt.figure(figsize=(14, 8))
         grid = self.fig.add_gridspec(2, 2, width_ratios=[1, 1], height_ratios=[1.3, 1])
@@ -82,6 +76,7 @@ class HexSimulation:
         self.footfall_black_is_stance = False
 
         self._setup_simulation_painter()       
+        self._build_walker(mode)
 
     def _setup_simulation_painter(self) -> None:
         """Create all matplotlib artist objects for the simulation"""
@@ -202,7 +197,7 @@ class HexSimulation:
         #add parameter adjustment sliders 
 
         slider_ax_speed = plt.axes([0.2, 0.09, 0.3, 0.03]) #
-        self.speed_slider = Slider(slider_ax_speed, 'Speed', 0.005, 0.05, valinit=0.02)
+        self.speed_slider = Slider(slider_ax_speed, 'Speed', 0.005, 0.05, valinit=0.02) #speed capped
         self.speed_slider.on_changed(self._speed_slider_callback)
 
         slider_ax_noise = plt.axes([0.2, 0.14, 0.3, 0.03])
@@ -217,23 +212,13 @@ class HexSimulation:
         self.zoom_slider = Slider(slider_ax_zoom, 'Zoom', 0.5, 5.0, valinit=2.5)
         self.zoom_slider.on_changed(self._zoom_slider_callback) 
 
-        self.coupling_sliders = []
-        coupling_specs = [
-            ("K1", "K1 behind", 0.0, 1.0),
-            ("K2", "K2 impulse", 0.0, 0.2),
-            ("K3", "K3 ahead", 0.0, 1.0),
-            ("K4", "K4 contralateral", 0.0, 1.0),
-        ]
-
-        for row, (name, label, low, high) in enumerate(coupling_specs):
-            slider_ax = plt.axes([0.68, 0.24 - 0.05 * row, 0.22, 0.03])
-            slider = Slider(slider_ax, label, low, high, valinit=getattr(self.walker.coupling, name), valfmt='%.2f', valstep=0.01 )
-            slider.on_changed(self._make_coupling_callback(name))
-            self.coupling_sliders.append(slider)
+        self.strength_sliders = {}
+        self.mode_label = self.fig.text(0.99, 0.98, "", ha='right', va='top',
+                                        fontsize=10)
         defaults_ax = plt.axes([0.35, 0.03, 0.15, 0.04])
-        self.defaults_button = Button(defaults_ax, 'Default coupling')
-        self.defaults_button.on_clicked(self._apply_default_coupling)
-        map_button_ax = plt.axes([0.52, 0.03, 0.14, 0.04])
+        self.defaults_button = Button(defaults_ax, 'Default')
+        self.defaults_button.on_clicked(self._apply_default_strengths)
+        map_button_ax = plt.axes([0.52, 0.03, 0.11, 0.04])
         self.map_button = Button(map_button_ax, 'Map: wrapped')
         self.map_button.on_clicked(self._toggle_map)
         button_ax = plt.axes([0.2, 0.03, 0.13, 0.04])
@@ -247,6 +232,95 @@ class HexSimulation:
         save_ax = plt.axes([0.29, 0.94, 0.08, 0.04])
         self.save_button = Button(save_ax, 'Save run')
         self.save_button.on_clicked(self._save_run)
+
+            # mode choice and play / pause
+        mode_ax = plt.axes([0.42, 0.915, 0.08, 0.075])
+        mode_names = list(MODES)
+        self.mode_buttons = RadioButtons(mode_ax, mode_names)
+        self.mode_buttons.on_clicked(self._on_mode_selected)
+        play_ax = plt.axes([0.52, 0.94, 0.08, 0.04])
+        self.play_button = Button(play_ax, 'Play')
+        self.play_button.on_clicked(self._toggle_play)
+
+    def _build_walker(self, mode: str) -> None:
+        """Fresh walker for this mode. Resets traces, recording, sliders."""
+        self.walker = HexWalker(
+            walker_id=1,
+            insect_body=self.insect_body,
+            body_position=np.array([0.0, 0.0, 0.0]),
+            body_orientation=0.0,
+            dt=self.dt,
+            body_scale=self.body_scale,
+            random_start_phases=False,
+            mode=mode,
+        )
+        self.walker.set_noise_level(self.noise_slider.val)
+        self.walker.set_speed(self.speed_slider.val)
+        self.walker.set_curve_radius(self.curve_slider.val)
+        self.recorder = Recorder(self.walker, seed=None)
+        self.recorder.record()
+        self._reset_traces()
+        self._build_strength_sliders()
+        self.mode_buttons.set_active(list(MODES).index(mode))
+        self.paused = True
+        self._update_status()
+
+    def _reset_traces(self) -> None:
+        """Clear everything drawn from the previous walker."""
+        self.tick_count = 0
+        self.trajectory_x, self.trajectory_y = [], []
+        self.unwrapped_x, self.unwrapped_y = [], []
+        self.wrap_offset = np.zeros(2)
+        self.footfall_buffer[:] = 0
+        for cloud in self.aep_scatter + self.pep_scatter:
+            cloud.set_data([], [])
+        for ellipse in self.aep_ellipses + self.pep_ellipses:
+            ellipse.set_width(0)
+            ellipse.set_height(0)
+
+    def _build_strength_sliders(self) -> None:
+        #One slider per strength of the current mode; old ones removed 
+        for slider in self.strength_sliders.values():
+            slider.ax.remove()
+        self.strength_sliders = {}
+        coupling = self.walker.coupling
+        n_sliders = len(coupling.strength_specs)
+        gap = min(0.045, 0.21 / max(n_sliders - 1, 1))  # fit any number
+        for row, (name, spec) in enumerate(coupling.strength_specs.items()):
+            label, low, high, step = spec
+            slider_ax = plt.axes([0.68, 0.25 - gap * row, 0.22, 0.025])
+            slider = Slider(
+                slider_ax, label, low, high,
+                valinit=coupling.strengths[name],
+                valfmt='%.3f', valstep=step,
+            )
+            slider.on_changed(self._make_strength_callback(name))
+            self.strength_sliders[name] = slider
+
+    def _on_mode_selected(self, mode: str) -> None:
+        """Switching mode starts a fresh run; the old one is saved first."""
+        if self.walker is None or mode == self.walker.mode.name:
+            return
+        self._autosave()
+        self._build_walker(mode)
+
+    def _autosave(self) -> None:
+        if len(self.recorder.ticks) <= 1:
+            return
+        RUNS_DIR.mkdir(exist_ok=True)
+        path = free_path(f"autosave_{self.walker.mode.name}")
+        self.recorder.save(path)
+        self.recorder.save_csv(path)
+        print("autosaved", len(self.recorder.ticks), "ticks to", path.name)
+
+    def _toggle_play(self, event) -> None:
+        self.paused = not self.paused
+        self._update_status()
+
+    def _update_status(self) -> None:
+        self.play_button.label.set_text('Play' if self.paused else 'Pause')
+        state = "paused" if self.paused else "running"
+        self.mode_label.set_text(f"mode: {self.walker.mode.name} ({state})")
 
     def _save_run(self, event) -> None:
         name = self.run_name_box.text.strip() or "unnamed"
@@ -274,14 +348,14 @@ class HexSimulation:
         self.ax.set_xlim(bx - half, bx + half)
         self.ax.set_ylim(by - half, by + half)
 
-    def _make_coupling_callback(self, name: str):
+    def _make_strength_callback(self, name: str):
         def callback(val: float) -> None:
-            self.walker.set_coupling(name, val)
+            self.walker.set_strength(name, val)
         return callback
 
-    def _apply_default_coupling(self, event) -> None:
-        for slider, value in zip(self.coupling_sliders, self.walker.default_coupling.values()):
-            slider.set_val(value)
+    def _apply_default_strengths(self, event) -> None:
+        for name, value in self.walker.default_strengths.items():
+            self.strength_sliders[name].set_val(value)
 
     def _toggle_map(self, event) -> None:
         self.map_unwrapped = not self.map_unwrapped
@@ -311,10 +385,13 @@ class HexSimulation:
     def animate(self, frame: int) -> list:
         """Update all visual elements for one timestep dt."""
 
+        if self.paused:
+            return []
+        self.tick_count += 1
+        frame = self.tick_count
         self.walker.update(self.dt)
         self.recorder.record()
         body_pos = self.walker.body_position.copy()
-        
         # all leg geometry in the same loop
         geometries = self.walker.get_world_geometry()
 
@@ -476,9 +553,13 @@ class HexSimulation:
         #interval = millisec between frames
 
 if __name__ == "__main__":
-    sim = HexSimulation(world_size=40,dt=0.02,body_scale=9.0)
+    import argparse
+    parser = argparse.ArgumentParser(description="Run the HexWalker2D viewer.")
+    parser.add_argument("--mode", default="phase",
+                           help="walking mode: phase or cruse")
+    args = parser.parse_args()
+    sim = HexSimulation(world_size=40, dt=0.02, body_scale=9.0, mode=args.mode)
     sim.run()
-        
 
 
 

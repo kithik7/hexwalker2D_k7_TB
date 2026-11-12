@@ -3,8 +3,8 @@ phase_leg.py
 
 PhaseLeg: a leg driven by its own clock.
 
-The phase runs is acircle map with its own tempo plus any pull from
-neighbouring clocks and any stored kick (tau). Crossing touchdown_phase
+The phase runs is a circle map with its own tempo plus any pull from
+neighbouring clocks. Crossing touchdown_phase
 starts stance, wrapping past 2 pi starts swing, 
 Effect on the foot from this mode: foot is placed from the phase every tick.
 """
@@ -19,7 +19,6 @@ class PhaseLeg(Leg):
 
     def _set_default_parameters(self) -> None:
         self.phase = np.pi  # start in stance
-        self.phase_kick = 0.0
         super()._set_default_parameters()
 
     def _update_timing(self) -> None:
@@ -48,11 +47,13 @@ class PhaseLeg(Leg):
         else:
             self.phase = progress * self.touchdown_phase
 
-    def update_phase(self, dt: float, coupling_signal: float) -> bool:
+    def update_phase(
+        self, dt: float, coupling_signal: float, nudge: float = 0.0
+    ) -> bool:
         """Advance the clock one tick and return True on touchdown."""
         old_phase = self.phase
         old_tarsus = self.tarsus_position.copy()
-        self._advance_phase(dt, coupling_signal)
+        self._advance_phase(dt, coupling_signal, nudge)
         crossed_liftoff, crossed_touchdown = self._detect_crossings(old_phase)
         if crossed_liftoff:
             self._on_liftoff()
@@ -62,13 +63,14 @@ class PhaseLeg(Leg):
         self._record_step(old_tarsus, crossed_liftoff or crossed_touchdown)
         return crossed_touchdown
 
-    def _advance_phase(self, dt: float, coupling_signal: float) -> None:
+    def _advance_phase(
+        self, dt: float, coupling_signal: float, nudge: float
+    ) -> None:
         """Own rate plus coupling pull plus any stored kick."""
         d_theta = self.omega_current + coupling_signal
         self.phase = (
-            self.phase + dt * d_theta + self.phase_kick
+            self.phase + dt * d_theta + nudge
         ) % FULL_CYCLE
-        self.phase_kick = 0.0
 
     def _detect_crossings(self, old_phase: float) -> tuple:
         """Report whether this tick crossed liftoff or touchdown.

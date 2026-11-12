@@ -11,9 +11,7 @@ import numpy as np
 from hexwalker.body.insect_body import InsectBody
 from hexwalker.core.coordinate_mapper import CoordinateMapper
 from hexwalker.legs.leg import LegGeometry
-from hexwalker.legs.phase_leg import PhaseLeg
-from hexwalker.interleg.phase_coupling import PhaseCoupling
-
+from hexwalker.modes import get_mode
 class HexWalker: 
     def __init__(
             self, 
@@ -24,6 +22,8 @@ class HexWalker:
             dt: float, 
             body_scale: float = 6.0,
             random_start_phases: bool = True,
+            *, #must be chosen
+            mode: str,
     ) -> None: 
         self.walker_id = walker_id 
         self.insect_body = insect_body
@@ -32,6 +32,7 @@ class HexWalker:
         self.dt = dt 
         self.body_scale = body_scale
         self.legs = []
+        self.mode = get_mode(mode)
         
         self.world_frame = CoordinateMapper(parent=None)
         self.body_frame = CoordinateMapper(parent=self.world_frame)
@@ -45,12 +46,12 @@ class HexWalker:
         else:
             self._set_tripod_pattern()
         
-        self.coupling = PhaseCoupling(self.legs)
-
+        self.coupling = self.mode.coordination_class(self.legs)
        
     @property
-    def default_coupling(self) -> dict:
-        return self.coupling.default_coupling
+    def default_strengths(self) -> dict:
+        return self.coupling.default_strengths
+
     
     def _attach_legs(self) -> None: 
         """Create six Leg Objects from InsectBody attachment points"""
@@ -65,7 +66,7 @@ class HexWalker:
 
         for i in range(6): 
             origin = np.append(attachment_points[i], 0.0)
-            leg = PhaseLeg(
+            leg = self.mode.leg_class(
                 leg_id=i+1,
                 leg_label=leg_labels[i],
                 origin=origin,
@@ -91,24 +92,20 @@ class HexWalker:
         """Set alternating tripod starting pattern. Legs 0, 2, 4 start in swing."""
         tripod_A = [0, 2, 4] #swing: phase in 0, pi 
         tripod_B = [1, 3, 5] #stance: phase in pi, 2pi
-        for idx in tripod_A: 
-            self.legs[idx].phase = self.legs[idx].touchdown_phase / 2
+        for idx in tripod_A:
+            self.legs[idx].place_at_phase(self.legs[idx].touchdown_phase / 2)
         for idx in tripod_B:
-            self.legs[idx].phase = self.legs[idx].touchdown_phase / 2 + np.pi
-        for leg in self.legs: 
-            leg._tarsus_from_phase()
+            self.legs[idx].place_at_phase(self.legs[idx].touchdown_phase / 2 + np.pi)
 
-    #set a random phase draw for each leg at t=0 to test 
+    #set a random phase draw for each leg as a test 
 
     def _set_random_phases(self) -> None:
         for leg in self.legs:
-            leg.phase = np.random.uniform(0.0, 2 * np.pi)
-            leg._tarsus_from_phase()
+            leg.place_at_phase(np.random.uniform(0.0, 2 * np.pi))
 
     def update(self, dt: float) -> None:
-        coupling_signals = self.coupling.compute_coupling_signals()
-        touched_down = [leg.update_phase(dt, coupling_signals[i]) for i, leg in enumerate(self.legs)]
-        self.coupling.apply_nudges(touched_down)
+        #in one tick: the chosenn mode moves the legs and then the body follows
+        self.coupling.step(dt)
         self._move_body()
 
     
@@ -240,9 +237,9 @@ class HexWalker:
             leg.stride_orientation = CURVE_FACTORS[i] * curve_radius
             leg._calculate_stride_endpoints() #to recalculate AEP PEP based on new orientation
 
-    def set_coupling(self, name: str, value: float) -> None:
-        self.coupling.set_coupling(name, value)
-
+    def set_strength(self, name: str, value: float) -> None:
+        self.coupling.set_strength(name, value)
+    
     def set_speed(self, speed: float) -> None:
         for leg in self.legs:
             leg.set_stance_step(speed)

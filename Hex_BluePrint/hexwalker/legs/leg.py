@@ -2,7 +2,7 @@
 leg.py
 
 Leg: everything a leg of the walker has independent of type, 
-and anything that decides the timing.
+and anything that decides the timing is decided by the subclasses.
 
 Identity and workspace, AEP and PEP, noisy targets, landing and liftoff
 histories, the step just taken, and the geometry handed to the
@@ -19,7 +19,7 @@ from scipy.spatial.transform import Rotation
 
 from hexwalker.core.coordinate_mapper import CoordinateMapper
 
-FULL_CYCLE = 2 * np.pi #constant
+FULL_CYCLE = 2 * np.pi  # constant
 
 
 @dataclass
@@ -65,9 +65,22 @@ class Leg(ABC):
     def ground_contact(self) -> bool:
         """True when the foot is on the ground."""
 
+    @property
+    def stretch_progress(self) -> float:
+        """How far through the current stance or swing, from 0 to 1."""
+        if self.ground_contact:
+            stance_share = FULL_CYCLE - self.touchdown_phase
+            return (self.phase - self.touchdown_phase) / stance_share
+        return self.phase / self.touchdown_phase
+
     @abstractmethod
     def set_stance_step(self, new_step: float) -> None:
         """Change the stance step size (Speed slider)."""
+
+    def place_at_phase(self, phase: float) -> None:
+        """Set the phase and put the foot where that phase says."""
+        self.phase = phase
+        self._tarsus_from_phase()
 
     def _store_identity(
         self,
@@ -132,18 +145,23 @@ class Leg(ABC):
             self.anterior_extreme_position
         )
         self.liftoff_position_history.append(
-            (self.noisy_posterior_extreme_position
-             - self.workspace_centre).copy()
+            (self._liftoff_point() - self.workspace_centre).copy()
         )
-
     def _on_touchdown(self) -> None:
         self.noisy_posterior_extreme_position = self._noisy(
             self.posterior_extreme_position
         )
         self.landing_position_history.append(
-            (self.noisy_anterior_extreme_position
-             - self.workspace_centre).copy()
+            (self._touchdown_point() - self.workspace_centre).copy()
         )
+
+    def _liftoff_point(self) -> np.ndarray:
+        """Where liftoff is recorded: the noisy PEP target by default."""
+        return self.noisy_posterior_extreme_position
+
+    def _touchdown_point(self) -> np.ndarray:
+        """Where touchdown is recorded: the noisy AEP target by default."""
+        return self.noisy_anterior_extreme_position
 
     def _record_step(self, old_tarsus: np.ndarray, crossed: bool) -> None:
         if crossed:

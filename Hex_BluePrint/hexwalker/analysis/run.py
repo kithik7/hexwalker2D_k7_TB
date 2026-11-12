@@ -9,20 +9,19 @@ BODY_FILE = PROJECT / "hexwalker" / "body" / "flySilhouette.mat"
 RUNS_DIR = PROJECT / "runs"
 
 
-def run_and_record(name, start="tripod", seed=0, n_ticks=1000, dt=0.02,
-                   couplings="default", speed=None, noise=0.0):
+def run_and_record(name, mode="phase", start="tripod", seed=0, n_ticks=1000,
+                   dt=0.02, strengths="default", speed=None, noise=0.0):
     np.random.seed(seed)
     body = InsectBody(str(BODY_FILE))
     walker = HexWalker(1, body, np.array([0.0, 0.0, 0.0]), 0.0, dt, 9.0,
-                       random_start_phases=(start == "random"))
+                       random_start_phases=(start == "random"), mode=mode)
     if isinstance(start, (list, tuple)):
         for leg, p in zip(walker.legs, start):
-            leg.phase = p
-            leg._tarsus_from_phase()
-    if couplings == "default":
-        couplings = walker.default_coupling
-    for k, v in couplings.items():
-        walker.set_coupling(k, v)
+            leg.place_at_phase(p)
+    if strengths == "default":
+        strengths = walker.default_strengths
+    for name_, value in strengths.items():
+        walker.set_strength(name_, value)
     if speed is not None:
         walker.set_speed(speed)
     walker.set_noise_level(noise)
