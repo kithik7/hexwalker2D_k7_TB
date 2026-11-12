@@ -62,7 +62,7 @@ class Leg(ABC):
     @property
     @abstractmethod
     def ground_contact(self) -> bool:
-        """ True when the foot is on the ground """
+        # True when the foot is on the ground 
 
     @property
     def stretch_progress(self) -> float:
@@ -74,7 +74,6 @@ class Leg(ABC):
 
     @abstractmethod
     def set_stance_step(self, new_step: float) -> None:
-        """Change the stance step size (Speed slider)"""
 
     def place_at_phase(self, phase: float) -> None:
         self.phase = phase
@@ -155,11 +154,11 @@ class Leg(ABC):
         )
 
     def _liftoff_point(self) -> np.ndarray:
-        """Where liftoff is recorded: the noisy PEP target by default."""
+        # where liftoff is recorded ie the noisy pep 
         return self.noisy_posterior_extreme_position
 
     def _touchdown_point(self) -> np.ndarray:
-        """Where touchdown is recorded: the noisy AEP target by default."""
+        # where touch down is recorded ie noisy aep 
         return self.noisy_anterior_extreme_position
 
     def _record_step(self, old_tarsus: np.ndarray, crossed: bool) -> None:
