@@ -55,7 +55,6 @@ class Leg(ABC):
             leg_id, leg_label, origin, workspace_centre, workspace_radius
         )
         self._set_default_parameters()
-        self._initialise_tarsus_position()
         self._calculate_stride_endpoints()
         self._tarsus_from_phase()
 
@@ -110,10 +109,7 @@ class Leg(ABC):
         swing_ticks = self.stride_amplitude / self.swing_step_size
         self.cycle_ticks = stance_ticks + swing_ticks
         self.touchdown_phase = FULL_CYCLE * swing_ticks / self.cycle_ticks
-
-    def _initialise_tarsus_position(self) -> None:
-        self.tarsus_position = self.workspace_centre.copy()
-
+        
     def _calculate_stride_endpoints(self) -> None:
         rotation_matrix = self._build_rotation_matrix()
         stride_vector = self._calculate_stride_vector(rotation_matrix)
