@@ -35,13 +35,12 @@ class PhaseCoupling:
 
     @property
     def ipsilateral_offset(self) -> float:
-        """Preferred ipsilateral gap: the swing share is at most half a lap."""
         if self.offset_follows_speed:
             return min(self.legs[0].touchdown_phase, np.pi)
         return FIXED_IPSILATERAL_OFFSET
 
     def compute_coupling_signals(self) -> list:
-        """Snapshot all six phases, then each leg's pull from neighbours."""
+        # Snapshot all six phases, then each leg's pull from neighbours.
         phases = [leg.phase for leg in self.legs]
         offset = self.ipsilateral_offset
         signals = []
@@ -78,7 +77,7 @@ class PhaseCoupling:
         return {"K1": self.K1, "K2": self.K2, "K3": self.K3, "K4": self.K4}
 
     def step(self, dt: float) -> None:
-        # One tick: signals and last tick's nudges, then legs move.
+        # One tick: signals and last tick's nudges, then the legs move.
         signals = self.compute_coupling_signals()
         touched_down = [
             leg.update_phase(dt, signal, nudge)
