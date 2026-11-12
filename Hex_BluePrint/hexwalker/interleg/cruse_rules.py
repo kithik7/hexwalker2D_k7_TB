@@ -32,13 +32,12 @@ RULE2_WINDOW = 0.2  # rule 2 acts during the first 20 % of the sender's stance
 
 @dataclass(frozen=True)
 class LegState:
-    """What the rules may know about one leg at the start of a tick."""
+    # What the rules may know about one leg at the start of a tick.
     in_stance: bool
     progress: float  # 0 to 1 through the current stance or swing
 
 
 def take_snapshot(legs: list) -> tuple:
-    """Read all legs once. Nothing is changed."""
     return tuple(
         LegState(in_stance=leg.ground_contact, progress=leg.stretch_progress)
         for leg in legs
@@ -46,7 +45,6 @@ def take_snapshot(legs: list) -> tuple:
 
 
 def compute_shifts(states: tuple, strengths: dict) -> tuple:
-    """Pure function: snapshot in, one liftoff shift per leg out."""
     return tuple(
         _shift_for(i, states, strengths) for i in range(len(states))
     )
@@ -121,7 +119,7 @@ class CruseRules:
     
 
 class ClockedCruseRules(CruseRules):
-    """Cruse rules plus the clock dial: g (listen) and h (lean)."""
+    # Cruse rules plus the clock dial: g (listen) and h (lean).
 
     strength_specs = {
         **CruseRules.strength_specs,
@@ -137,7 +135,7 @@ class ClockedCruseRules(CruseRules):
         self.strengths = {name: 0.0 for name in self.default_strengths}
 
     def step(self, dt: float) -> None:
-        """One tick: rule shifts from one snapshot, then legs and clocks."""
+        # for one tick: rule shifts from one snapshot, then legs and clocks.
         g = self.strengths["g"]
         h = self.strengths["h"]
         for leg, shift in zip(self.legs, self.shifts()):

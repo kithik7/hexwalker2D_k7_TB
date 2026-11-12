@@ -24,7 +24,6 @@ class CoordinateMapper:
         return self.parent.world_transform() @ self.local_transform
 
     def to_world(self, point: np.ndarray) -> np.ndarray:
-        """Map a local point to world coordinates through the transform chain"""
         homogenous = np.append(point[:3], 1.0)
         return (self.world_transform() @ homogenous)[:3]
 
@@ -34,7 +33,6 @@ class CoordinateMapper:
         angle: float = 0.0,
         scale: float = 1.0,
     ) -> None:
-        """Set transform with optional scale and rotation."""
         c = np.cos(angle)
         s = np.sin(angle)
         self.local_transform = np.array([

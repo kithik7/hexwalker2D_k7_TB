@@ -59,6 +59,7 @@ class Recorder:
             path,
             ticks=np.array(self.ticks),
             phases=np.array(self.phases),
+            clock_phases=np.array(self.clock_phases),
             contacts=np.array(self.contacts),
             body_x=np.array(self.body_x),
             body_y=np.array(self.body_y),
@@ -74,6 +75,7 @@ class Recorder:
         legs = ["L1", "L2", "L3", "R1", "R2", "R3"]
         header = (["tick"]
                   + [f"phase_{leg}" for leg in legs]
+                  + [f"clock_{leg}" for leg in legs]
                   + [f"contact_{leg}" for leg in legs]
                   + ["body_x", "body_y", "heading"]
                   + self.strength_names
@@ -81,6 +83,7 @@ class Recorder:
         table = np.column_stack([
             self.ticks,
             self.phases,
+            self.clock_phases,
             np.array(self.contacts, dtype=int),
             self.body_x, self.body_y, self.heading,
             self.strengths, self.speeds, self.noise_levels,

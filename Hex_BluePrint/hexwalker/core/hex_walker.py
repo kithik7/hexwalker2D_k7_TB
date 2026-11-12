@@ -54,7 +54,6 @@ class HexWalker:
 
     
     def _attach_legs(self) -> None: 
-        """Create six Leg Objects from InsectBody attachment points"""
         attachment_points = self.insect_body.attachment_points 
         # sort into left and right, then front to back
         left_points = sorted([p for p in attachment_points if p[0] < 0], key=lambda p: -p[1])
@@ -89,7 +88,6 @@ class HexWalker:
         return centres
             
     def _set_tripod_pattern(self) -> None: 
-        """Set alternating tripod starting pattern. Legs 0, 2, 4 start in swing."""
         tripod_A = [0, 2, 4] #swing: phase in 0, pi 
         tripod_B = [1, 3, 5] #stance: phase in pi, 2pi
         for idx in tripod_A:
@@ -110,7 +108,6 @@ class HexWalker:
 
     
     def _move_body(self) -> None:
-        """move body position and orientation based on grounded legs"""
         translation, rotation = self._calculate_displacement()
         self.body_position[0] += translation[0]
         self.body_position[1] += translation[1]
@@ -123,7 +120,6 @@ class HexWalker:
 
 
     def _calculate_displacement(self) -> tuple:
-        """Calculate body displacement using grounded leg pair."""
         grounded_legs = [leg for leg in self.legs if leg.ground_contact and np.linalg.norm(leg.last_step) > 0]
         if len(grounded_legs) < 2:
             return np.zeros(2), 0.0
@@ -183,14 +179,12 @@ class HexWalker:
        
     
     def get_tarsus_positions(self) -> np.ndarray:
-        """Return tarsus positions in world coordinates via kinematic chain."""
         return np.array([
             leg.frame.to_world(leg.tarsus_position) 
             for leg in self.legs
         ])
 
     def get_support_polygon_grounded_positions(self) -> np.ndarray:
-        """Return grounded tarsus positions in world coordinates via kinematic chain."""
         return np.array([
             leg.frame.to_world(leg.tarsus_position)
             for leg in self.legs
@@ -198,7 +192,6 @@ class HexWalker:
         ])
 
     def get_world_geometry(self) -> list:
-        """Return all leg geometry converted to world coordinates."""
         result = []
         for leg in self.legs:
             g = leg.get_geometry()
@@ -230,7 +223,6 @@ class HexWalker:
             self,
             curve_radius: float,
     ) -> None: 
-        """Set stride orientation for each leg so walker can start curve walking"""
         CURVE_FACTORS = [1, 0, -1, 1, 0, -1]
         
         for i, leg in enumerate(self.legs):

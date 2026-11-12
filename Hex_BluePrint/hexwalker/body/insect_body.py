@@ -41,7 +41,6 @@ class InsectBody:
         self.outline = self.outline[is_not_duplicate]
 
     def _normalise(self) -> None:
-         """ centre outline and scale to fit """
          x_min = self.outline[:, 0].min()
          x_max = self.outline[:, 0].max()
          y_min = self.outline[:, 1].min()

@@ -66,18 +66,17 @@ class PhaseLeg(Leg):
     def _advance_phase(
         self, dt: float, coupling_signal: float, nudge: float
     ) -> None:
-        """Own rate plus coupling pull plus any stored kick."""
+        # clocks own rate plus coupling pull plus any stored nudge
         d_theta = self.omega_current + coupling_signal
         self.phase = (
             self.phase + dt * d_theta + nudge
         ) % FULL_CYCLE
 
     def _detect_crossings(self, old_phase: float) -> tuple:
-        """Report whether this tick crossed liftoff or touchdown.
-
-        Liftoff is detected as the phase going down (wrapping past 2 pi).
-        This assumes the clock rate stays positive.
-        """
+        # has this tick crossed liftoff or touchdown.
+        # Liftoff is detected as the phase going down (wrapping past 2 pi).
+        # assumes that clock rate stays positive.
+        
         crossed_liftoff = (
             self.phase < old_phase and old_phase > self.touchdown_phase
         )
@@ -93,7 +92,6 @@ class PhaseLeg(Leg):
         self._refresh_omega()
 
     def _refresh_omega(self) -> None:
-        """Reset clock rate to its steady value plus fresh timing noise."""
         noise = 0.0
         if self.noise_level > 0:
             noise = np.random.normal(0, self.noise_level)

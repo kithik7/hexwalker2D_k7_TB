@@ -1,7 +1,7 @@
 """
 leg.py
 
-Leg: everything a leg of the walker has independent of type, 
+Leg: everything a leg of the walker has independent of type,
 and anything that decides the timing is decided by the subclasses.
 
 Identity and workspace, AEP and PEP, noisy targets, landing and liftoff
@@ -40,7 +40,6 @@ class LegGeometry:
 
 
 class Leg(ABC):
-    """Shared base for all legs. Subclasses provide timing."""
 
     def __init__(
         self,
@@ -63,11 +62,11 @@ class Leg(ABC):
     @property
     @abstractmethod
     def ground_contact(self) -> bool:
-        """True when the foot is on the ground."""
+        """ True when the foot is on the ground """
 
     @property
     def stretch_progress(self) -> float:
-        """How far through the current stance or swing, from 0 to 1."""
+        # How far through the current stance or swing, from 0 to 1.
         if self.ground_contact:
             stance_share = FULL_CYCLE - self.touchdown_phase
             return (self.phase - self.touchdown_phase) / stance_share
@@ -75,10 +74,9 @@ class Leg(ABC):
 
     @abstractmethod
     def set_stance_step(self, new_step: float) -> None:
-        """Change the stance step size (Speed slider)."""
+        """Change the stance step size (Speed slider)"""
 
     def place_at_phase(self, phase: float) -> None:
-        """Set the phase and put the foot where that phase says."""
         self.phase = phase
         self._tarsus_from_phase()
 
@@ -147,6 +145,7 @@ class Leg(ABC):
         self.liftoff_position_history.append(
             (self._liftoff_point() - self.workspace_centre).copy()
         )
+
     def _on_touchdown(self) -> None:
         self.noisy_posterior_extreme_position = self._noisy(
             self.posterior_extreme_position

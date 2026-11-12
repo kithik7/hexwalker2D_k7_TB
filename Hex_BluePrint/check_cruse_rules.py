@@ -25,7 +25,7 @@ late_stance = LegState(in_stance=True, progress=0.9)
 swing = LegState(in_stance=False, progress=0.5)
 defaults = CruseRules([]).default_strengths
 
-# L2 (index 1) in swing, everyone else late in stance
+# L2 (index 1) in swing, everyone else is late in stance
 states = (late_stance, swing, late_stance,
           late_stance, late_stance, late_stance)
 print("L1 shift while L2 swings (rule 1 wait + rule 3 contralateral go):",
