@@ -12,6 +12,12 @@ from hexwalker.body.insect_body import InsectBody
 from hexwalker.core.coordinate_mapper import CoordinateMapper
 from hexwalker.legs.leg import LegGeometry
 from hexwalker.modes import get_mode
+
+#workspace centre of each leg measured from its attachment point
+WORKSPACE_OFFSETS = np.array([
+    [-0.1, 0.2], [-0.2, 0.0], [-0.1, -0.25],
+       [0.1, 0.2], [0.2, 0.0], [0.1, -0.25],
+   ])
 class HexWalker: 
     def __init__(
             self, 
@@ -59,8 +65,6 @@ class HexWalker:
         left_points = sorted([p for p in attachment_points if p[0] < 0], key=lambda p: -p[1])
         right_points = sorted([p for p in attachment_points if p[0] > 0], key=lambda p: -p[1])
         attachment_points = np.array(left_points + right_points)
-        
-        workspace_centres = self._calculate_workspace_centres(attachment_points)
         leg_labels = ['L1', 'L2', 'L3', 'R1', 'R2', 'R3']
 
         for i in range(6): 
@@ -69,23 +73,13 @@ class HexWalker:
                 leg_id=i+1,
                 leg_label=leg_labels[i],
                 origin=origin,
-                workspace_centre=workspace_centres[i],
+                workspace_centre=np.append(WORKSPACE_OFFSETS[i], 0.0),
                 workspace_radius=0.2,
                 dt = self.dt,
             )
             self.legs.append(leg)
             leg.frame.parent = self.body_frame
             leg.frame.set_transform(np.append(attachment_points[i], 0.0), scale=1.0)
-       
-
-    def _calculate_workspace_centres(self, attachment_points: np.ndarray) -> list:
-        body_edge_to_workspace_centre_distance = 0.15
-        centres = []
-        for point in attachment_points:
-            outward_direction = point / np.linalg.norm(point)
-            centre = np.append(outward_direction * body_edge_to_workspace_centre_distance, 0.0)
-            centres.append(centre)
-        return centres
             
     def _set_tripod_pattern(self) -> None: 
         tripod_A = [0, 2, 4] #swing: phase in 0, pi 
