@@ -13,11 +13,14 @@ from hexwalker.core.hex_walker import HexWalker
 TICKS = 1000
 DT = 0.02
 
-# recorded with offset_follows_speed = True (the current default)
-EXPECTED_POSITION = [-1.748685, 180.392344]
-EXPECTED_HEADING = 0.010893
+# recorded with offset_follows_speed = True (the current default) 
+#attachment points updated, old baseline was commented out
+# EXPECTED_POSITION = [-1.748685, 180.392344]
+# EXPECTED_HEADING = 0.010893
+# EXPECTED_PHASES = [4.856999, 0.93946, 2.935258, 1.768443, 4.019465, 6.078605]
+EXPECTED_POSITION = [-1.580829, 180.43839]
+EXPECTED_HEADING = 0.009684
 EXPECTED_PHASES = [4.856999, 0.93946, 2.935258, 1.768443, 4.019465, 6.078605]
-
 mat = Path(__file__).parent / "hexwalker" / "body" / "flySilhouette.mat"
 body = InsectBody(str(mat))
 walker = HexWalker(1, body, np.array([0.0, 0.0, 0.0]), 0.0, DT, 9.0,

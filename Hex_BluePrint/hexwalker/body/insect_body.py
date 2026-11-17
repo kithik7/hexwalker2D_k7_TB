@@ -59,12 +59,12 @@ class InsectBody:
 
     def _find_attachment_points(self) -> None:
         self.attachment_points = np.array([
-            [-0.16,  0.29],   # L1 front
-            [-0.18,  0.07],   # L2 middle
-            [-0.16, -0.08],   # L3 hind
-            [ 0.16,  0.29],   # R1 front
-            [ 0.18,  0.07],   # R2 middle
-            [ 0.16, -0.08],   # R3 hind
+            [-0.184,  0.307],   # L1 front
+            [-0.232,  0.059],   # L2 middle
+            [-0.197, -0.089],   # L3 hind
+            [ 0.184,  0.307],   # R1 front
+            [ 0.232,  0.059],   # R2 middle
+            [ 0.197, -0.089],   # R3 hind
         ])
 #test 
 if __name__ == '__main__':
