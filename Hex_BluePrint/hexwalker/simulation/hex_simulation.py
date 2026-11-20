@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt 
 from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Slider
-from matplotlib.patches import Ellipse
+from matplotlib.patches import Ellipse, FancyArrowPatch
 from matplotlib.widgets import Button 
 from matplotlib.colors import ListedColormap
 from scipy.spatial import ConvexHull
@@ -44,6 +44,7 @@ class HexSimulation:
         self.recorder = None
         self.paused = True
         self.tick_count = 0
+
         #create figure and its axes 
         self.fig = plt.figure(figsize=(14, 8))
         grid = self.fig.add_gridspec(2, 2, width_ratios=[1, 1], height_ratios=[1.3, 1])
@@ -162,9 +163,17 @@ class HexSimulation:
         )
         self.ax.add_patch(self.stability_polygon)
 
-        #body coordinate axes, red x and greegit add n y 
-        self.body_x_axis, = self.ax.plot([], [], '-', color='#e8000b', linewidth=2.0)
-        self.body_y_axis, = self.ax.plot([], [], '-', color='#00e64d', linewidth=2.0)
+        #body coordinate axes, red x and green is y 
+        self.body_x_axis = FancyArrowPatch((0, 0), (0, 0), arrowstyle='-|>',
+                                           mutation_scale=12, color='#e60000', linewidth=2.0)
+        self.body_y_axis = FancyArrowPatch((0, 0), (0, 0), arrowstyle='-|>',
+                                           mutation_scale=12, color='#00b34d', linewidth=2.0)
+        self.ax.add_patch(self.body_x_axis)
+        self.ax.add_patch(self.body_y_axis)
+
+        # centre of mass marker
+        self.com_marker, = self.ax.plot([], [], 'x', color='#2f4f6f',
+                                        markersize=8, markeredgewidth=2)
 
         #trace trajectory line 
         self.trajectory_line, = self.ax.plot([], [], '-', color='#3B8BD4',
@@ -233,7 +242,7 @@ class HexSimulation:
         self.save_button = Button(save_ax, 'Save run')
         self.save_button.on_clicked(self._save_run)
 
-            # mode choice and play / pause
+        # mode choice and play / pause
         mode_ax = plt.axes([0.42, 0.915, 0.08, 0.075])
         mode_names = list(MODES)
         self.mode_buttons = RadioButtons(mode_ax, mode_names)
@@ -485,15 +494,24 @@ class HexSimulation:
 
         # body coordinate axes
         angle = self.walker.body_orientation
-        axis_length = 0.5 * self.body_scale
-        self.body_x_axis.set_data(
-            [body_pos[0], body_pos[0] + axis_length * np.cos(angle)],
-            [body_pos[1], body_pos[1] + axis_length * np.sin(angle)]
+        axis_length = 0.12 * self.body_scale
+        start = (body_pos[0], body_pos[1])
+        self.body_x_axis.set_positions(
+            start,
+            (body_pos[0] + axis_length * np.cos(angle),
+             body_pos[1] + axis_length * np.sin(angle))
         )
-        self.body_y_axis.set_data(
-            [body_pos[0], body_pos[0] + axis_length * np.cos(angle + np.pi / 2)],
-            [body_pos[1], body_pos[1] + axis_length * np.sin(angle + np.pi / 2)]
+        self.body_y_axis.set_positions(
+            start,
+            (body_pos[0] + axis_length * np.cos(angle + np.pi / 2),
+             body_pos[1] + axis_length * np.sin(angle + np.pi / 2))
         )
+
+        # centre of mass, from body coordinates to world
+        com_local = np.append(self.insect_body.centre_of_mass, 0.0)
+        com_world = self.walker.body_frame.to_world(com_local)
+        self.com_marker.set_data([com_world[0]], [com_world[1]])
+
         # store position before wrapping
         pre_toroid_wrapping_position = self.walker.body_position[:2].copy()
         self.unwrapped_x.append(pre_toroid_wrapping_position[0] + self.wrap_offset[0])
@@ -541,7 +559,7 @@ class HexSimulation:
                 self.noisy_aep_markers + self.noisy_pep_markers +
                 self.aep_scatter + self.pep_scatter +
                 [self.body_line, self.trajectory_line,
-                self.body_x_axis, self.body_y_axis,
+                self.body_x_axis, self.body_y_axis, self.com_marker,
                 self.minimap_line, self.minimap_dot])
 
     def run(self) -> None:

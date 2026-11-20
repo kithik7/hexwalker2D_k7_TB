@@ -7,6 +7,12 @@ from pathlib import Path
 import numpy as np 
 from scipy.io import loadmat 
 
+# head, thorax, abdomen as % of fly weight, weighed in nick's paper (n = 30)
+# legs (11 %) and wings (0.5 %) left out
+SEGMENT_WEIGHTS = np.array([12.5, 31.0, 45.0])
+# middle of each segment along y, area centroid from the outline
+# boundaries placed by eye: neck at y = 0.31, waist at y = -0.13
+SEGMENT_MIDDLES = np.array([0.39, 0.09, -0.28])
 
 class InsectBody: 
     def __init__(self, source_path: str) -> None: 
@@ -16,6 +22,7 @@ class InsectBody:
         self._normalise()
         self._correct_orientation()
         self._find_attachment_points()
+        self._find_centre_of_mass()
 
     #router function that routes format to its respective private loading methods 
     def _load_outline(self) -> None:
@@ -66,6 +73,12 @@ class InsectBody:
             [ 0.232,  0.059],   # R2 middle
             [ 0.197, -0.089],   # R3 hind
         ])
+
+    def _find_centre_of_mass(self) -> None:
+        # x = 0 because the fly body outline is mirror image ie symmetric
+        com_y = np.sum(SEGMENT_WEIGHTS * SEGMENT_MIDDLES) / np.sum(SEGMENT_WEIGHTS)
+        self.centre_of_mass = np.array([0.0, com_y])
+    
 #test 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt 
