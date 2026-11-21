@@ -219,14 +219,14 @@ class HexWalker:
         for leg in self.legs:
             leg.clock_noise = clock_noise    
 
-    def set_curve_radius(
+    def set_curve_angle(
             self,
-            curve_radius: float,
+            curve_angle: float,
     ) -> None: 
         CURVE_FACTORS = [1, 0, -1, 1, 0, -1]
         
         for i, leg in enumerate(self.legs):
-            leg.stride_orientation = CURVE_FACTORS[i] * curve_radius
+            leg.stride_orientation = CURVE_FACTORS[i] * curve_angle
             leg._calculate_stride_endpoints() #to recalculate AEP PEP based on new orientation
 
     def set_strength(self, name: str, value: float) -> None:

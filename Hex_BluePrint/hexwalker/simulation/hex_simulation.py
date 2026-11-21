@@ -275,7 +275,7 @@ class HexSimulation:
         self.walker.set_target_noise(self.noise_slider.val)
         self.walker.set_clock_noise(self.clock_noise_slider.val)
         self.walker.set_speed(self.speed_slider.val)
-        self.walker.set_curve_radius(self.curve_slider.val)
+        self.walker.set_curve_angle(self.curve_slider.val)
         self.recorder = Recorder(self.walker, seed=None)
         self.recorder.record()
         self._reset_traces()
@@ -358,7 +358,6 @@ class HexSimulation:
         self.walker.set_clock_noise(val)
 
     def _curve_slider_callback(self, val: float) -> None:
-        """Update curve radius when slider changes."""
         self.walker.set_curve_radius(val)
 
     def _zoom_slider_callback(self, val: float) -> None:
