@@ -30,7 +30,6 @@ class HexWalker:
             body_position: np.ndarray,
             body_orientation: float, 
             dt: float, 
-            body_scale: float = 6.0,
             random_start_phases: bool = True,
             *, #must be chosen
             mode: str,
@@ -40,13 +39,12 @@ class HexWalker:
         self.body_position = body_position 
         self.body_orientation = body_orientation 
         self.dt = dt 
-        self.body_scale = body_scale
         self.legs = []
         self.mode = get_mode(mode)
         
         self.world_frame = CoordinateMapper(parent=None)
         self.body_frame = CoordinateMapper(parent=self.world_frame)
-        self.body_frame.set_transform(self.body_position, angle=self.body_orientation, scale=self.body_scale) 
+        self.body_frame.set_transform(self.body_position, angle=self.body_orientation) 
  
         self._attach_legs()
         #self._set_tripod_pattern()
@@ -102,9 +100,7 @@ class HexWalker:
     def update(self, dt: float) -> None:
         #in one tick: the chosenn mode moves the legs and then the body follows
         self.coupling.step(dt)
-        self._move_body()
-
-    
+  
     def _move_body(self) -> None:
         translation, rotation = self._calculate_displacement()
         self.body_position[0] += translation[0]
@@ -113,7 +109,6 @@ class HexWalker:
         self.body_frame.set_transform(
             self.body_position,
             angle=self.body_orientation,
-            scale=self.body_scale
         )
 
 
@@ -168,7 +163,7 @@ class HexWalker:
 
         mean_position = np.mean(all_translations, axis=0)
         mean_rotation = np.mean(all_rotations)
-        displacement = mean_position * self.body_scale
+        displacement = mean_position 
         c = np.cos(self.body_orientation)
         s = np.sin(self.body_orientation)
         world_x = c * displacement[0] - s * displacement[1]
@@ -192,8 +187,7 @@ class HexWalker:
     def get_stability_margin(self) -> float:
         # COM is the body origin, so its world position is body_position
         feet = self.get_support_polygon_grounded_positions().reshape(-1, 3)[:, :2]
-        margin_world = stability_margin(feet, self.body_position[:2])
-        return margin_world / self.body_scale
+        return stability_margin(feet, self.body_position[:2])
     
     def get_world_geometry(self) -> list:
         result = []
@@ -211,7 +205,7 @@ class HexWalker:
                 landing_position_history=list(g.landing_position_history),
                 liftoff_position_history=list(g.liftoff_position_history),
                 workspace_centre=leg.frame.to_world(g.workspace_centre),
-                workspace_radius=g.workspace_radius * self.body_scale,
+                workspace_radius=g.workspace_radius,
                 origin=leg.frame.to_world(np.zeros(3)),
             ))
         return result

@@ -110,7 +110,7 @@ class CruseRules:
     def shifts(self) -> tuple:
         return compute_shifts(take_snapshot(self.legs), self.strengths)
 
-    def step(self, dt: float) -> None:
+    def step(self) -> None:
     # One tick shifts from one snapshot and then every leg moves
     # dt isnt used here since cruse legs move in steps per tick.
         for leg, shift in zip(self.legs, self.shifts()):

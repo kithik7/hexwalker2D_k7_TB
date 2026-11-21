@@ -31,18 +31,23 @@ DT = 0.02
 # EXPECTED_PHASES = [4.856999, 0.93946, 2.935258, 1.768443, 4.019465, 6.078605]
 
 #after changing stride amplitude to 0.45 according to wosnitza et al. 2013 
-EXPECTED_POSITION = [-0.202091, 180.722382]
+# EXPECTED_POSITION = [-0.202091, 180.722382]
+# EXPECTED_HEADING = 0.000457
+# EXPECTED_PHASES = [1.811207, 4.136962, 0.077859, 4.900805, 1.053072, 3.218324]
+
+#after removing body scale since BL exists 
+EXPECTED_POSITION = [-0.022455, 20.080265]
 EXPECTED_HEADING = 0.000457
 EXPECTED_PHASES = [1.811207, 4.136962, 0.077859, 4.900805, 1.053072, 3.218324]
 
 mat = Path(__file__).parent / "hexwalker" / "body" / "flySilhouette.mat"
 body = InsectBody(str(mat))
-walker = HexWalker(1, body, np.array([0.0, 0.0, 0.0]), 0.0, DT, 9.0,
+walker = HexWalker(1, body, np.array([0.0, 0.0, 0.0]), 0.0, DT,
                    random_start_phases=False, mode="phase")
 for name, value in walker.default_strengths.items():
     walker.set_strength(name, value)
 for _ in range(TICKS):
-    walker.update(DT)
+    walker.update()
 
 position = np.round(walker.body_position[:2], 6)
 heading = round(float(walker.body_orientation), 6)

@@ -48,12 +48,12 @@ class PhaseLeg(Leg):
             self.phase = progress * self.touchdown_phase
 
     def update_phase(
-        self, dt: float, coupling_signal: float, nudge: float = 0.0
+        self, coupling_signal: float, nudge: float = 0.0
     ) -> bool:
         """Advance the clock one tick and return True on touchdown."""
         old_phase = self.phase
         old_tarsus = self.tarsus_position.copy()
-        self._advance_phase(dt, coupling_signal, nudge)
+        self._advance_phase(coupling_signal, nudge)
         crossed_liftoff, crossed_touchdown = self._detect_crossings(old_phase)
         if crossed_liftoff:
             self._on_liftoff()
@@ -64,12 +64,12 @@ class PhaseLeg(Leg):
         return crossed_touchdown
 
     def _advance_phase(
-        self, dt: float, coupling_signal: float, nudge: float
+        self, coupling_signal: float, nudge: float
     ) -> None:
         # clocks own rate plus coupling pull plus any stored nudge
         d_theta = self.omega_current + coupling_signal
         self.phase = (
-            self.phase + dt * d_theta + nudge
+            self.phase + self.dt * d_theta + nudge
         ) % FULL_CYCLE
 
     def _detect_crossings(self, old_phase: float) -> tuple:

@@ -13,7 +13,7 @@ def run_and_record(name, mode="phase", start="tripod", seed=0, n_ticks=1000,
                    dt=0.02, strengths="default", speed=None, target_noise=0.0, clock_noise=0.0):
     np.random.seed(seed)
     body = InsectBody(str(BODY_FILE))
-    walker = HexWalker(1, body, np.array([0.0, 0.0, 0.0]), 0.0, dt, 9.0,
+    walker = HexWalker(1, body, np.array([0.0, 0.0, 0.0]), 0.0, dt,
                        random_start_phases=(start == "random"), mode=mode)
     if isinstance(start, (list, tuple)):
         for leg, p in zip(walker.legs, start):
@@ -30,7 +30,7 @@ def run_and_record(name, mode="phase", start="tripod", seed=0, n_ticks=1000,
     recorder = Recorder(walker, seed=seed)
     recorder.record()
     for _ in range(n_ticks):
-        walker.update(dt)
+        walker.update()
         recorder.record()
 
     RUNS_DIR.mkdir(exist_ok=True)

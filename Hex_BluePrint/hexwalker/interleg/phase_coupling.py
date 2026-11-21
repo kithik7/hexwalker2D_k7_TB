@@ -75,11 +75,11 @@ class PhaseCoupling:
     def strengths(self) -> dict:
         return {"K1": self.K1, "K2": self.K2, "K3": self.K3, "K4": self.K4}
 
-    def step(self, dt: float) -> None:
+    def step(self) -> None:
         # One tick comprises signals, last ticks nudges and then legs are moved
         signals = self.compute_coupling_signals()
         touched_down = [
-            leg.update_phase(dt, signal, nudge)
+            leg.update_phase(signal, nudge)
             for leg, signal, nudge in zip(
                 self.legs, signals, self._pending_nudges
             )

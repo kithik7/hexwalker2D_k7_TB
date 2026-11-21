@@ -21,18 +21,20 @@ from hexwalker.analysis.recorder import Recorder
 from hexwalker.analysis.run import RUNS_DIR, free_path
 from hexwalker.modes import MODES
 
+# ticks computed per drawn frame: 5 ticks x 2 ms = 10 ms of fly time per frame,
+# about 10x slow motion when a frame takes about 100 ms to draw
+TICKS_PER_FRAME = 2 #25x slower with a 100ms frame 
+
 class HexSimulation: 
     def __init__(
             self,
-            world_size: float = 20, 
+            world_size: float = 4.5, #BL  
             dt: float =0.02, 
-            body_scale: float =9.0,
             source_path: str = None,
             mode: str = "phase",         
     ) -> None: 
         self.world_size = world_size
         self.dt = dt
-        self.body_scale = body_scale
 
         #default to mat file for outline if no other source provided 
         if source_path is None:
@@ -57,17 +59,17 @@ class HexSimulation:
         self.ax.set_facecolor('#f5f5f0')
         self.ax.grid(True, alpha= 0.2)
         self.ax.set_autoscale_on(False)
-        self.ax.set_xlabel(f'world units (1 body length = {self.body_scale:g})', fontsize=8)
-        self.traj_ax.set_xlabel(f'world units (1 body length = {self.body_scale:g})', fontsize=8)
+        self.ax.set_xlabel(f'body lengths (Bl)', fontsize=8)
+        self.traj_ax.set_xlabel(f'body lengths (BL)', fontsize=8)
         plt.subplots_adjust(bottom=0.33, top=0.91, hspace=0.3)
 
-        #store x and y trajectories 
-        self.trajectory_x = []
-        self.trajectory_y = []
-
+        # trajectories: unwrapped for the main view and the unwrapped map,
+        # wrapped (folded into the world box) for the wrapped map only
+        #data collection has no teleportation jumps, 
         self.unwrapped_x = []
         self.unwrapped_y = []
-        self.wrap_offset = np.zeros(2)
+        self.wrapped_x = []
+        self.wrapped_y = []
         self.map_unwrapped = False
 
         #history table for footfall
@@ -197,7 +199,7 @@ class HexSimulation:
             extent=(0, self.footfall_length, 10.5, -0.5))
         self.footfall_ax.set_yticks(range(0, 11, 2))
         self.footfall_ax.set_yticklabels(['L1', 'L2', 'L3', 'R1', 'R2', 'R3'], fontsize=8)
-        self.footfall_ax.set_xlabel('Time [frames]', fontsize=8)
+        self.footfall_ax.set_xlabel('Time [ticks]', fontsize=8)
         self.footfall_ax.tick_params(axis='x', labelsize=8)
         self.footfall_ax.spines[['top', 'right', 'left']].set_visible(False)
         for k in range(6):
@@ -230,6 +232,8 @@ class HexSimulation:
         self.strength_sliders = {}
         self.mode_label = self.fig.text(0.99, 0.98, "", ha='right', va='top',
                                         fontsize=10)
+        self.time_label = self.fig.text(0.99, 0.95, "", ha='right', va='top',
+                                        fontsize=9)
         defaults_ax = plt.axes([0.35, 0.03, 0.15, 0.04])
         self.defaults_button = Button(defaults_ax, 'Default')
         self.defaults_button.on_clicked(self._apply_default_strengths)
@@ -265,7 +269,6 @@ class HexSimulation:
             body_position=np.array([0.0, 0.0, 0.0]),
             body_orientation=0.0,
             dt=self.dt,
-            body_scale=self.body_scale,
             random_start_phases=False,
             mode=mode,
         )
@@ -284,9 +287,8 @@ class HexSimulation:
     def _reset_traces(self) -> None:
         """Clear everything drawn from the previous walker."""
         self.tick_count = 0
-        self.trajectory_x, self.trajectory_y = [], []
         self.unwrapped_x, self.unwrapped_y = [], []
-        self.wrap_offset = np.zeros(2)
+        self.wrapped_x, self.wrapped_y = [], []
         self.footfall_buffer[:] = 0
         for cloud in self.aep_scatter + self.pep_scatter:
             cloud.set_data([], [])
@@ -386,7 +388,7 @@ class HexSimulation:
     def _fit_map_to_path(self) -> None:
         x_low, x_high = min(self.unwrapped_x), max(self.unwrapped_x)
         y_low, y_high = min(self.unwrapped_y), max(self.unwrapped_y)
-        half_span = max(x_high - x_low, y_high - y_low, 10.0) / 2 * 1.1
+        half_span = max(x_high - x_low, y_high - y_low, 1.1) / 2 * 1.1
         centre_x, centre_y = (x_low + x_high) / 2, (y_low + y_high) / 2
         self.traj_ax.set_xlim(centre_x - half_span, centre_x + half_span)
         self.traj_ax.set_ylim(centre_y - half_span, centre_y + half_span)
@@ -402,20 +404,24 @@ class HexSimulation:
 
     def animate(self, frame: int) -> list:
         """Update all visual elements for one timestep dt."""
-
         if self.paused:
             return []
-        self.tick_count += 1
-        frame = self.tick_count
-        self.walker.update(self.dt)
-        self.recorder.record()
+        for _ in range(TICKS_PER_FRAME):
+            self.tick_count += 1
+            self.walker.update()
+            self.recorder.record()
+            # the footfall strip gets every tick, not only the drawn ones
+            self.footfall_buffer = np.roll(self.footfall_buffer, -1, axis=1)
+            self.footfall_buffer[0::2, -1] = [self.walker.legs[i].ground_contact == self.footfall_black_is_stance for i in self.footfall_order]
         body_pos = self.walker.body_position.copy()
         # all leg geometry in the same loop
         geometries = self.walker.get_world_geometry()
 
-        #update footfall each frame 
-        self.footfall_buffer = np.roll(self.footfall_buffer, -1, axis=1)
-        self.footfall_buffer[0::2, -1] = [geometries[i].ground_contact == self.footfall_black_is_stance for i in self.footfall_order]
+        ms_per_tick = self.recorder.settings["ms_per_tick"]
+        self.time_label.set_text(
+            f"fly time {frame * ms_per_tick / 1000:.2f} s, "
+            f"{TICKS_PER_FRAME * ms_per_tick:.0f} ms per frame"
+        )
         self.footfall_image.set_extent((frame - self.footfall_length + 1, frame + 1, 10.5, -0.5))
         self.footfall_ax.set_xlim(max(0, frame - self.footfall_length + 1), max(self.footfall_length, frame + 1))
         self.footfall_image.set_data(self.footfall_buffer)
@@ -503,7 +509,7 @@ class HexSimulation:
 
         # body coordinate axes
         angle = self.walker.body_orientation
-        axis_length = 0.12 * self.body_scale
+        axis_length = 0.12 #BL
         start = (body_pos[0], body_pos[1])
         self.body_x_axis.set_positions(
             start,
@@ -521,47 +527,33 @@ class HexSimulation:
         com_world = self.walker.body_frame.to_world(com_local)
         self.com_marker.set_data([com_world[0]], [com_world[1]])
 
-        # store position before wrapping
-        pre_toroid_wrapping_position = self.walker.body_position[:2].copy()
-        self.unwrapped_x.append(pre_toroid_wrapping_position[0] + self.wrap_offset[0])
-        self.unwrapped_y.append(pre_toroid_wrapping_position[1] + self.wrap_offset[1])
-
-        # toroidal wrapping
-        half = self.world_size / 2
-        self.walker.body_position[0] = (self.walker.body_position[0] + half) % self.world_size - half
-        self.walker.body_position[1] = (self.walker.body_position[1] + half) % self.world_size - half
-        self.wrap_offset += pre_toroid_wrapping_position - self.walker.body_position[:2]
-
-        self.walker.body_frame.set_transform(
-            self.walker.body_position,
-            angle=self.walker.body_orientation,
-            scale=self.body_scale
-        )
-
-        # camera follow
+        # camera follow: the walker is never wrapped, the camera is only following it
         half_view = (self.world_size / 2) / self.zoom_slider.val
-        self.ax.set_xlim(self.walker.body_position[0] - half_view, self.walker.body_position[0] + half_view)
-        self.ax.set_ylim(self.walker.body_position[1] - half_view, self.walker.body_position[1] + half_view)
+        self.ax.set_xlim(body_pos[0] - half_view, body_pos[0] + half_view)
+        self.ax.set_ylim(body_pos[1] - half_view, body_pos[1] + half_view)
 
-        # trajectory
-        wrap_occured = (
-            abs(self.walker.body_position[0] - pre_toroid_wrapping_position[0]) > half or
-            abs(self.walker.body_position[1] - pre_toroid_wrapping_position[1]) > half
-        )
-        self.trajectory_x.append(body_pos[0])
-        self.trajectory_y.append(body_pos[1])
+        # trajectory in the main view, unwrapped
+        self.unwrapped_x.append(body_pos[0])
+        self.unwrapped_y.append(body_pos[1])
+        self.trajectory_line.set_data(self.unwrapped_x, self.unwrapped_y)
 
-        if wrap_occured:
-            self.trajectory_x.append(np.nan)
-            self.trajectory_y.append(np.nan)
-        self.trajectory_line.set_data(self.trajectory_x, self.trajectory_y)
+        # a wrapped copy for the minimap only; the walker's position is maintained 
+        half = self.world_size / 2
+        wrapped = (body_pos[:2] + half) % self.world_size - half
+        if self.wrapped_x and (abs(wrapped[0] - self.wrapped_x[-1]) > half
+                               or abs(wrapped[1] - self.wrapped_y[-1]) > half):
+            self.wrapped_x.append(np.nan)  # break the line at the box edge
+            self.wrapped_y.append(np.nan)
+        self.wrapped_x.append(wrapped[0])
+        self.wrapped_y.append(wrapped[1])
+
         if self.map_unwrapped:
             self.minimap_line.set_data(self.unwrapped_x, self.unwrapped_y)
-            self.minimap_dot.set_data([self.unwrapped_x[-1]], [self.unwrapped_y[-1]])
+            self.minimap_dot.set_data([body_pos[0]], [body_pos[1]])
             self._fit_map_to_path()
         else:
-            self.minimap_line.set_data(self.trajectory_x, self.trajectory_y)
-            self.minimap_dot.set_data([self.walker.body_position[0]], [self.walker.body_position[1]])
+            self.minimap_line.set_data(self.wrapped_x, self.wrapped_y)
+            self.minimap_dot.set_data([wrapped[0]], [wrapped[1]])
 
         return (self.tarsus_markers + self.leg_segments +
                 self.platonic_aep_markers + self.platonic_pep_markers +
@@ -585,7 +577,7 @@ if __name__ == "__main__":
     parser.add_argument("--mode", default="phase",
                            help="walking mode: phase or cruse")
     args = parser.parse_args()
-    sim = HexSimulation(world_size=40, dt=0.02, body_scale=9.0, mode=args.mode)
+    sim = HexSimulation(world_size=4.5, dt=0.02, mode=args.mode)
     sim.run()
 
 
