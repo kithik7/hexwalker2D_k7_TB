@@ -38,7 +38,8 @@ class Recorder:
         self.heading = []
         self.strengths = []
         self.speeds = []
-        self.noise_levels = []
+        self.target_noises = []
+        self.clock_noises = []
         self.stability_margins = []
 
     def record(self) -> None:
@@ -53,7 +54,8 @@ class Recorder:
         self.heading.append(self.walker.body_orientation)
         self.strengths.append(list(self.walker.coupling.strengths.values()))
         self.speeds.append(self.walker.legs[0].stance_step_size)
-        self.noise_levels.append(self.walker.legs[0].noise_level)
+        self.target_noises.append(self.walker.legs[0].target_noise)
+        self.clock_noises.append(self.walker.legs[0].clock_noise)
         self.stability_margins.append(self.walker.get_stability_margin())
         self.tick += 1
 
@@ -69,7 +71,8 @@ class Recorder:
             heading=np.array(self.heading),
             strengths=np.array(self.strengths),
             speeds=np.array(self.speeds),
-            noise_levels=np.array(self.noise_levels),
+            target_noises=np.array(self.target_noises),
+            clock_noises=np.array(self.clock_noises),
             settings=np.array(self.settings, dtype=object),
             stability_margins=np.array(self.stability_margins),
         )
@@ -83,14 +86,14 @@ class Recorder:
                   + [f"contact_{leg}" for leg in legs]
                   + ["body_x", "body_y", "heading"]
                   + self.strength_names
-                  + ["speed", "noise", "stability_margin"])
+                  + ["speed", "target_noise", "clock_noise", "stability_margin"])
         table = np.column_stack([
             self.ticks,
             self.phases,
             self.clock_phases,
             np.array(self.contacts, dtype=int),
             self.body_x, self.body_y, self.heading,
-            self.strengths, self.speeds, self.noise_levels,
+            self.strengths, self.speeds, self.target_noises, self.clock_noises,
             self.stability_margins
         ])
         np.savetxt(path.with_suffix(".csv"), table, delimiter=",",

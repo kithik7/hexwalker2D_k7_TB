@@ -216,12 +216,14 @@ class HexWalker:
             ))
         return result
  
-    def set_noise_level(
-            self,
-            noise_level: float,
-    ) -> None: 
-        for leg in self.legs: 
-            leg.noise_level = noise_level 
+    #noise split into target noise and clock noise 
+    def set_target_noise(self, target_noise: float) -> None:
+        for leg in self.legs:
+            leg.target_noise = target_noise
+
+    def set_clock_noise(self, clock_noise: float) -> None:
+        for leg in self.legs:
+            leg.clock_noise = clock_noise    
 
     def set_curve_radius(
             self,

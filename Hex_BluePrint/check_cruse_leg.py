@@ -20,7 +20,7 @@ def make_legs(noise: float) -> list:
                        np.array([0.0, 0.0, 0.0]), 0.2)
         start = leg.touchdown_phase / 2
         leg.place_at_phase(start if i in TRIPOD_A else start + np.pi)
-        leg.noise_level = noise
+        leg.target_noise = noise
         legs.append(leg)
     return legs
 

@@ -98,7 +98,8 @@ class Leg(ABC):
         self.stance_step_size = 0.02
         self.swing_step_size = 0.03
         self.stride_orientation = 0.0
-        self.noise_level = 0.0
+        self.target_noise = 0.0  # BL, SD of the noisy AEP and PEP
+        self.clock_noise = 0.0  # rad per model time, SD of the clock tempo (read by PhaseLeg)
         self.frame = CoordinateMapper(parent=None)
         self.landing_position_history = []
         self.liftoff_position_history = []
@@ -178,10 +179,10 @@ class Leg(ABC):
         self.tarsus_position = start + fraction * (end - start)
 
     def _noisy(self, position: np.ndarray) -> np.ndarray:
-        # (SD = noise_level)
-        if self.noise_level == 0.0:
+        # (SD = target_noise)
+        if self.target_noise == 0.0:
             return position.copy()
-        noise = np.random.normal(0.0, self.noise_level, size=2)
+        noise = np.random.normal(0.0, self.target_noise, size=2)
         return position + np.append(noise, 0.0)
 
     def get_geometry(self) -> LegGeometry:

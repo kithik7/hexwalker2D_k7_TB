@@ -93,6 +93,6 @@ class PhaseLeg(Leg):
 
     def _refresh_omega(self) -> None:
         noise = 0.0
-        if self.noise_level > 0:
-            noise = np.random.normal(0, self.noise_level)
+        if self.clock_noise > 0:
+            noise = np.random.normal(0, self.clock_noise)
         self.omega_current = self.base_omega + noise

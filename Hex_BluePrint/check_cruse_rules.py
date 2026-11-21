@@ -44,7 +44,7 @@ def run(strengths: dict, speed: float, seed: int) -> tuple:
     for i in range(6):
         leg = CruseLeg(i + 1, f"leg{i}", np.zeros(3), np.zeros(3), 0.2)
         leg.place_at_phase(np.random.uniform(0.0, 2 * np.pi))
-        leg.noise_level = NOISE
+        leg.target_noise = NOISE
         leg.set_stance_step(speed)
         legs.append(leg)
     rules = CruseRules(legs)

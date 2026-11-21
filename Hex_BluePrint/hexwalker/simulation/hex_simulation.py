@@ -205,21 +205,25 @@ class HexSimulation:
 
         #add parameter adjustment sliders 
 
-        slider_ax_speed = plt.axes([0.2, 0.09, 0.3, 0.03]) #
+        slider_ax_speed = plt.axes([0.2, 0.085, 0.3, 0.025]) 
         self.speed_slider = Slider(slider_ax_speed, 'Speed', 0.005, 0.03, valinit=0.02) #speed capped
         #below 0.03 stance lasts longer than swing, on avg more than half the feet are down
         #as insects speed up, stance shortens towards swing but won't drop below it 
         self.speed_slider.on_changed(self._speed_slider_callback)
 
-        slider_ax_noise = plt.axes([0.2, 0.14, 0.3, 0.03])
-        self.noise_slider = Slider(slider_ax_noise, 'Noise', 0.0, 0.05, valinit=self.baseline_noise, valfmt='%.3f', valstep=0.001)
+        slider_ax_noise = plt.axes([0.2, 0.12, 0.3, 0.025])
+        self.noise_slider = Slider(slider_ax_noise, 'Target noise (BL)', 0.0, 0.05, valinit=self.baseline_noise, valfmt='%.3f', valstep=0.001)
         self.noise_slider.on_changed(self._noise_slider_callback)
 
-        slider_ax_curve = plt.axes([0.2, 0.19, 0.3, 0.03])
+        slider_ax_clock_noise = plt.axes([0.2, 0.155, 0.3, 0.025])
+        self.clock_noise_slider = Slider(slider_ax_clock_noise, 'Clock noise', 0.0, 0.05, valinit=self.baseline_noise, valfmt='%.3f', valstep=0.001)
+        self.clock_noise_slider.on_changed(self._clock_noise_slider_callback)
+
+        slider_ax_curve = plt.axes([0.2, 0.19, 0.3, 0.025])
         self.curve_slider = Slider(slider_ax_curve, 'Curve (rad)', 0.0, 0.3, valinit=0.0, valfmt='%.3f', valstep=0.005)
         self.curve_slider.on_changed(self._curve_slider_callback)
 
-        slider_ax_zoom = plt.axes([0.2, 0.24, 0.3, 0.03])
+        slider_ax_zoom = plt.axes([0.2, 0.225, 0.3, 0.025])
         self.zoom_slider = Slider(slider_ax_zoom, 'Zoom', 0.5, 5.0, valinit=2.5)
         self.zoom_slider.on_changed(self._zoom_slider_callback) 
 
@@ -265,7 +269,8 @@ class HexSimulation:
             random_start_phases=False,
             mode=mode,
         )
-        self.walker.set_noise_level(self.noise_slider.val)
+        self.walker.set_target_noise(self.noise_slider.val)
+        self.walker.set_clock_noise(self.clock_noise_slider.val)
         self.walker.set_speed(self.speed_slider.val)
         self.walker.set_curve_radius(self.curve_slider.val)
         self.recorder = Recorder(self.walker, seed=None)
@@ -345,8 +350,10 @@ class HexSimulation:
         self.walker.set_speed(val)
 
     def _noise_slider_callback(self, val: float) -> None:
-        """Update noise level on all legs when slider changes."""
-        self.walker.set_noise_level(val)
+        self.walker.set_target_noise(val)
+
+    def _clock_noise_slider_callback(self, val: float) -> None:
+        self.walker.set_clock_noise(val)
 
     def _curve_slider_callback(self, val: float) -> None:
         """Update curve radius when slider changes."""
@@ -424,7 +431,7 @@ class HexSimulation:
             )
             self.platonic_aep_markers[i].set_data([geom.anterior_extreme[0]], [geom.anterior_extreme[1]])
             self.platonic_pep_markers[i].set_data([geom.posterior_extreme[0]], [geom.posterior_extreme[1]])
-            if self.walker.legs[0].noise_level > 0:
+            if self.walker.legs[0].target_noise > 0:
                 self.noisy_aep_markers[i].set_data([geom.noisy_anterior_extreme[0]], [geom.noisy_anterior_extreme[1]])
                 self.noisy_pep_markers[i].set_data([geom.noisy_posterior_extreme[0]], [geom.noisy_posterior_extreme[1]])
             else:
