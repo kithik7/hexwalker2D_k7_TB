@@ -1,0 +1,13 @@
+{
+  "mode": "cruse",
+  "dt": 0.02,
+  "seed": null,
+  "strength_names": [
+    "rule1",
+    "rule2",
+    "rule3",
+    "rule2_contra",
+    "rule3_contra"
+  ],
+  "offset_follows_speed": null
+}

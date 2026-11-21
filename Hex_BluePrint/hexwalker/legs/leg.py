@@ -93,7 +93,7 @@ class Leg(ABC):
         self.workspace_radius = workspace_radius
 
     def _set_default_parameters(self) -> None:
-        self.stride_amplitude = 0.3
+        self.stride_amplitude = 0.45 #from wosnitza et al., 2013
         self.stance_step_size = 0.02
         self.swing_step_size = 0.03
         self.stride_orientation = 0.0

@@ -38,6 +38,7 @@ class Recorder:
         self.strengths = []
         self.speeds = []
         self.noise_levels = []
+        self.stability_margins = []
 
     def record(self) -> None:
         self.ticks.append(self.tick)
@@ -52,6 +53,7 @@ class Recorder:
         self.strengths.append(list(self.walker.coupling.strengths.values()))
         self.speeds.append(self.walker.legs[0].stance_step_size)
         self.noise_levels.append(self.walker.legs[0].noise_level)
+        self.stability_margins.append(self.walker.get_stability_margin())
         self.tick += 1
 
     def save(self, path: str) -> None:
@@ -68,6 +70,7 @@ class Recorder:
             speeds=np.array(self.speeds),
             noise_levels=np.array(self.noise_levels),
             settings=np.array(self.settings, dtype=object),
+            stability_margins=np.array(self.stability_margins),
         )
 
     def save_csv(self, path) -> None:
@@ -79,7 +82,7 @@ class Recorder:
                   + [f"contact_{leg}" for leg in legs]
                   + ["body_x", "body_y", "heading"]
                   + self.strength_names
-                  + ["speed", "noise"])
+                  + ["speed", "noise", "stability_margin"])
         table = np.column_stack([
             self.ticks,
             self.phases,
@@ -87,6 +90,7 @@ class Recorder:
             np.array(self.contacts, dtype=int),
             self.body_x, self.body_y, self.heading,
             self.strengths, self.speeds, self.noise_levels,
+            self.stability_margins
         ])
         np.savetxt(path.with_suffix(".csv"), table, delimiter=",",
                    header=",".join(header), comments="", fmt="%.10g")

@@ -12,12 +12,16 @@ from hexwalker.body.insect_body import InsectBody
 from hexwalker.core.coordinate_mapper import CoordinateMapper
 from hexwalker.legs.leg import LegGeometry
 from hexwalker.modes import get_mode
+from hexwalker.analysis.stability import stability_margin
 
-#workspace centre of each leg measured from its attachment point
+# stance centre of each leg measured from attachment points in BL 
+#stance centres from wosnitza et al., 2013 figure 2b , shifted by 0.11 BL
+#origin calibrated against a video recording; rows L1 L2 L3 R1 R2 R3
 WORKSPACE_OFFSETS = np.array([
-    [-0.1, 0.2], [-0.2, 0.0], [-0.1, -0.25],
-       [0.1, 0.2], [0.2, 0.0], [0.1, -0.25],
-   ])
+    [-0.082, 0.190], [-0.333, -0.117], [-0.184, -0.456],
+    [0.082, 0.190], [0.333, -0.117], [0.184, -0.456],
+])
+
 class HexWalker: 
     def __init__(
             self, 
@@ -185,6 +189,12 @@ class HexWalker:
             if leg.ground_contact
         ])
 
+    def get_stability_margin(self) -> float:
+        # COM is the body origin, so its world position is body_position
+        feet = self.get_support_polygon_grounded_positions().reshape(-1, 3)[:, :2]
+        margin_world = stability_margin(feet, self.body_position[:2])
+        return margin_world / self.body_scale
+    
     def get_world_geometry(self) -> list:
         result = []
         for leg in self.legs:

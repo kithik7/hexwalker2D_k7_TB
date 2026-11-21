@@ -18,9 +18,23 @@ DT = 0.02
 # EXPECTED_POSITION = [-1.748685, 180.392344]
 # EXPECTED_HEADING = 0.010893
 # EXPECTED_PHASES = [4.856999, 0.93946, 2.935258, 1.768443, 4.019465, 6.078605]
-EXPECTED_POSITION = [-1.580829, 180.43839]
-EXPECTED_HEADING = 0.009684
-EXPECTED_PHASES = [4.856999, 0.93946, 2.935258, 1.768443, 4.019465, 6.078605]
+
+#second old baselines
+# EXPECTED_POSITION = [-1.580829, 180.43839]
+# EXPECTED_HEADING = 0.009684
+# EXPECTED_PHASES = [4.856999, 0.93946, 2.935258, 1.768443, 4.019465, 6.078605]
+
+#after changing body geometry since attachment points moved by a factor of 2 after
+#deciding to change origin pivot -> com
+# EXPECTED_POSITION = [-1.54432,  180.438812]
+# EXPECTED_HEADING = 0.009492
+# EXPECTED_PHASES = [4.856999, 0.93946, 2.935258, 1.768443, 4.019465, 6.078605]
+
+#after changing stride amplitude to 0.45 according to wosnitza et al. 2013 
+EXPECTED_POSITION = [-0.202091, 180.722382]
+EXPECTED_HEADING = 0.000457
+EXPECTED_PHASES = [1.811207, 4.136962, 0.077859, 4.900805, 1.053072, 3.218324]
+
 mat = Path(__file__).parent / "hexwalker" / "body" / "flySilhouette.mat"
 body = InsectBody(str(mat))
 walker = HexWalker(1, body, np.array([0.0, 0.0, 0.0]), 0.0, DT, 9.0,
