@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np 
 from scipy.io import loadmat 
 
-# head, thorax, abdomen as % of fly weight, weighed in nick's paper (n = 30)
+# head, thorax, abdomen as % of fly weight, weighed in Szczecinski et al. 2018 (n = 30)
 # legs (11 %) and wings (0.5 %) left out
 SEGMENT_WEIGHTS = np.array([12.5, 31.0, 45.0])
 # middle of each segment along y, area centroid from the outline
@@ -51,15 +51,15 @@ class InsectBody:
         self.outline = self.outline[is_not_duplicate]
 
     def _normalise(self) -> None:
-         x_min = self.outline[:, 0].min()
-         x_max = self.outline[:, 0].max()
-         y_min = self.outline[:, 1].min()
-         y_max = self.outline[:, 1].max()
-         scale = max(x_max - x_min, y_max - y_min)
-         centred_outline = self.outline.copy()
-         centred_outline[:,0] = (self.outline[:, 0] - (x_min + x_max) / 2)
-         centred_outline[:,1] = (self.outline[:, 1] - (y_min + y_max) / 2)
-         self.normalised_outline = centred_outline / scale 
+        x_min = self.outline[:, 0].min()
+        x_max = self.outline[:, 0].max()
+        y_min = self.outline[:, 1].min()
+        y_max = self.outline[:, 1].max()
+        scale = max(x_max - x_min, y_max - y_min)
+        centred_outline = self.outline.copy()
+        centred_outline[:,0] = (self.outline[:, 0] - (x_min + x_max) / 2)
+        centred_outline[:,1] = (self.outline[:, 1] - (y_min + y_max) / 2)
+        self.normalised_outline = centred_outline / scale 
 
     def _find_attachment_points(self) -> None:
         self.attachment_points = np.array([

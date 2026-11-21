@@ -15,7 +15,7 @@ from hexwalker.modes import get_mode
 from hexwalker.analysis.stability import stability_margin
 
 # stance centre of each leg measured from attachment points in BL 
-#stance centres from wosnitza et al., 2013 figure 2b , shifted by 0.11 BL
+#stance centres from Wosnitza et al., 2013 figure 2b , shifted by 0.11 BL
 #origin calibrated against a video recording; rows L1 L2 L3 R1 R2 R3
 WORKSPACE_OFFSETS = np.array([
     [-0.082, 0.190], [-0.333, -0.117], [-0.184, -0.456],

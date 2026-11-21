@@ -25,8 +25,8 @@ class HexSimulation:
     def __init__(
             self,
             world_size: float = 20, 
-            dt: float =0.05, 
-            body_scale: float =8.0,
+            dt: float =0.02, 
+            body_scale: float =9.0,
             source_path: str = None,
             mode: str = "phase",         
     ) -> None: 
@@ -206,7 +206,9 @@ class HexSimulation:
         #add parameter adjustment sliders 
 
         slider_ax_speed = plt.axes([0.2, 0.09, 0.3, 0.03]) #
-        self.speed_slider = Slider(slider_ax_speed, 'Speed', 0.005, 0.05, valinit=0.02) #speed capped
+        self.speed_slider = Slider(slider_ax_speed, 'Speed', 0.005, 0.03, valinit=0.02) #speed capped
+        #below 0.03 stance lasts longer than swing, on avg more than half the feet are down
+        #as insects speed up, stance shortens towards swing but won't drop below it 
         self.speed_slider.on_changed(self._speed_slider_callback)
 
         slider_ax_noise = plt.axes([0.2, 0.14, 0.3, 0.03])
@@ -214,7 +216,7 @@ class HexSimulation:
         self.noise_slider.on_changed(self._noise_slider_callback)
 
         slider_ax_curve = plt.axes([0.2, 0.19, 0.3, 0.03])
-        self.curve_slider = Slider(slider_ax_curve, 'Curve radius', 0.0, 0.3, valinit=0.0, valfmt='%.3f', valstep=0.005)
+        self.curve_slider = Slider(slider_ax_curve, 'Curve (rad)', 0.0, 0.3, valinit=0.0, valfmt='%.3f', valstep=0.005)
         self.curve_slider.on_changed(self._curve_slider_callback)
 
         slider_ax_zoom = plt.axes([0.2, 0.24, 0.3, 0.03])

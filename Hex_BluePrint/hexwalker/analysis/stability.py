@@ -8,7 +8,7 @@ Follows Szczecinski et al. 2018
 import numpy as np 
 from scipy.spatial import ConvexHull
 
-def stability_margin(feet: np.ndarray, com: np.ndaarray) -> float:
+def stability_margin(feet: np.ndarray, com: np.ndarray) -> float:
     #if fewer than three feet down then area = 0
     if len(feet) < 3:
         return 0.0

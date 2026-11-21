@@ -21,6 +21,7 @@ class Recorder:
         self.settings = {
             "mode": walker.mode.name,
             "dt": walker.dt,
+            "ms_per_tick": 2.0, #Szczecinski et al. 2018 swing 31 ms = 15 ticks
             "seed": seed,
             "strength_names": self.strength_names,
             "offset_follows_speed": getattr(

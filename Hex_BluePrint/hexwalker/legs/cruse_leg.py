@@ -16,7 +16,7 @@ import numpy as np
 
 from hexwalker.legs.leg import FULL_CYCLE, Leg
 
-MAX_OVERSHOOT = 0.1  # how far past PEP the foot can reach (stride = 0.3)
+MAX_OVERSHOOT = 0.1  # how far past PEP the foot can reach (set before when old_stride = 0.3)
 
 
 class CruseLeg(Leg):

@@ -73,7 +73,8 @@ class Leg(ABC):
 
     @abstractmethod
     def set_stance_step(self, new_step: float) -> None:
-        """"""
+        """set stance step in BL per tick (speed)"""
+
     def place_at_phase(self, phase: float) -> None:
         self.phase = phase
         self._tarsus_from_phase()
@@ -93,7 +94,7 @@ class Leg(ABC):
         self.workspace_radius = workspace_radius
 
     def _set_default_parameters(self) -> None:
-        self.stride_amplitude = 0.45 #from wosnitza et al., 2013
+        self.stride_amplitude = 0.45 #from Wosnitza et al., 2013
         self.stance_step_size = 0.02
         self.swing_step_size = 0.03
         self.stride_orientation = 0.0
