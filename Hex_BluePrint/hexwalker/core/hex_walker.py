@@ -99,7 +99,7 @@ class HexWalker:
 
     def update(self, dt: float) -> None:
         #in one tick: the chosenn mode moves the legs and then the body follows
-        self.coupling.step(dt)
+        self.coupling.step()
   
     def _move_body(self) -> None:
         translation, rotation = self._calculate_displacement()

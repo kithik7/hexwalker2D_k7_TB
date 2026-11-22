@@ -134,7 +134,7 @@ class ClockedCruseRules(CruseRules):
         }
         self.strengths = {name: 0.0 for name in self.default_strengths}
 
-    def step(self, dt: float) -> None:
+    def step(self) -> None:
         # for one tick: rule shifts from one snapshot, then legs and clocks.
         g = self.strengths["g"]
         h = self.strengths["h"]

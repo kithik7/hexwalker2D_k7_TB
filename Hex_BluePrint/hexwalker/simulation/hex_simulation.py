@@ -358,7 +358,7 @@ class HexSimulation:
         self.walker.set_clock_noise(val)
 
     def _curve_slider_callback(self, val: float) -> None:
-        self.walker.set_curve_radius(val)
+        self.walker.set_curve_angle(val)
 
     def _zoom_slider_callback(self, val: float) -> None:
         """Zoom in around the walker."""
