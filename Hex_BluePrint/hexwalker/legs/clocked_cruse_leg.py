@@ -43,12 +43,12 @@ class ClockedCruseLeg(CruseLeg):
         return self.clock.phase
 
     def update(self, liftoff_shift: float = 0.0, g: float = 0.0,
-               h: float = 0.0) -> bool:
+               h: float = 0.0, clock_pull: float = 0.0) -> bool:
         #One tick for foot and clock, both from the same start state
         psi = self.phase
         phi = self.clock.phase
         lean = h * np.sin(phi - psi)
-        pull = g * np.sin(psi - phi)
+        pull = g * np.sin(psi - phi) + clock_pull
         landed = super().update(liftoff_shift + lean)
         self.clock.advance(self.dt, pull)
         return landed

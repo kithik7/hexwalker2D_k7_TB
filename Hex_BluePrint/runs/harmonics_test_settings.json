@@ -1,0 +1,16 @@
+{
+  "mode": "harmonic",
+  "dt": 0.02,
+  "ms_per_tick": 2.0,
+  "seed": null,
+  "strength_names": [
+    "rule1",
+    "rule2",
+    "rule3",
+    "rule2_contra",
+    "rule3_contra",
+    "g",
+    "h"
+  ],
+  "offset_follows_speed": null
+}

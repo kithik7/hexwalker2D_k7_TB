@@ -97,9 +97,10 @@ class HexWalker:
         for leg in self.legs:
             leg.place_at_phase(np.random.uniform(0.0, 2 * np.pi))
 
-    def update(self, dt: float) -> None:
+    def update(self) -> None:
         #in one tick: the chosenn mode moves the legs and then the body follows
         self.coupling.step()
+        self._move_body()
   
     def _move_body(self) -> None:
         translation, rotation = self._calculate_displacement()

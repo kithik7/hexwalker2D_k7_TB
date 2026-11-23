@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 from hexwalker.interleg.cruse_rules import ClockedCruseRules, CruseRules
 from hexwalker.interleg.phase_coupling import PhaseCoupling
+from hexwalker.interleg.harmonic_clocks import HarmonicClockRules
 from hexwalker.legs.clocked_cruse_leg import ClockedCruseLeg
 from hexwalker.legs.cruse_leg import CruseLeg
 from hexwalker.legs.phase_leg import PhaseLeg
@@ -27,6 +28,7 @@ MODES = {
     "phase": Mode("phase", PhaseLeg, PhaseCoupling),
     "cruse": Mode("cruse", CruseLeg, CruseRules),
     "cruse_clock": Mode("cruse_clock", ClockedCruseLeg, ClockedCruseRules),
+        "harmonic": Mode("harmonic", ClockedCruseLeg, HarmonicClockRules),
 }
 
 PLANNED_MODES = ()
